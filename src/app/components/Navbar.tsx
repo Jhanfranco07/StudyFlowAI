@@ -1,8 +1,21 @@
 import { Link } from "react-router";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Languages } from "lucide-react";
 import { Button } from "./ui/button";
 
 export default function Navbar() {
+  const abrirTraduccion = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const paginaActual = encodeURIComponent(window.location.href);
+    window.open(
+      `https://translate.google.com/translate?sl=es&tl=en&u=${paginaActual}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-gray-200 bg-white/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
@@ -34,6 +47,17 @@ export default function Navbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={abrirTraduccion}
+            aria-label="Traducir página"
+            title="Traducir página"
+            className="h-9 rounded-lg border-blue-100 bg-blue-50/70 px-3 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+          >
+            <Languages className="h-4 w-4" />
+            <span className="hidden lg:inline">Traducir</span>
+          </Button>
           <Link to="/login">
             <Button variant="ghost" className="px-3 text-sm sm:px-4">
               <span className="hidden sm:inline">Iniciar sesión</span>
