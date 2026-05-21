@@ -19,11 +19,14 @@ export default function Navbar() {
           <a href="#inicio" className="text-gray-600 transition-colors hover:text-gray-900">
             Inicio
           </a>
+          <a href="#beneficios" className="text-gray-600 transition-colors hover:text-gray-900">
+            Beneficios
+          </a>
           <a href="#caracteristicas" className="text-gray-600 transition-colors hover:text-gray-900">
             Características
           </a>
-          <a href="#beneficios" className="text-gray-600 transition-colors hover:text-gray-900">
-            Beneficios
+          <a href="#colaborativo" className="text-gray-600 transition-colors hover:text-gray-900">
+            Equipos
           </a>
           <a href="#precios" className="text-gray-600 transition-colors hover:text-gray-900">
             Precios
@@ -38,7 +41,7 @@ export default function Navbar() {
             </Button>
           </Link>
           <Link to="/register?plan=gratis">
-            <Button className="px-3 text-sm bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 sm:px-4">
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 px-3 text-sm hover:from-blue-700 hover:to-purple-700 sm:px-4">
               <span className="hidden sm:inline">Empieza gratis</span>
               <span className="sm:hidden">Gratis</span>
             </Button>
