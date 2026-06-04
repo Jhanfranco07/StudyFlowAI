@@ -166,16 +166,33 @@ create table if not exists proyectos_grupales (
   nombre text not null,
   descripcion text default '',
   fecha_limite date not null,
+  codigo_invitacion text not null default upper(substr(md5(random()::text), 1, 6)) unique,
   creado_en timestamptz not null default now()
 );
+
+alter table proyectos_grupales add column if not exists codigo_invitacion text;
+update proyectos_grupales
+set codigo_invitacion = upper(substr(md5(id::text), 1, 6))
+where codigo_invitacion is null or codigo_invitacion = '';
+alter table proyectos_grupales alter column codigo_invitacion set default upper(substr(md5(random()::text), 1, 6));
+alter table proyectos_grupales alter column codigo_invitacion set not null;
+create unique index if not exists proyectos_grupales_codigo_invitacion_unique on proyectos_grupales (codigo_invitacion);
 
 create table if not exists integrantes_proyecto (
   id uuid primary key default gen_random_uuid(),
   proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
   nombre text not null,
   rol text default 'Integrante',
+  rol_permiso text not null default 'editor' check (rol_permiso in ('admin', 'editor', 'responsable', 'lector')),
   creado_en timestamptz not null default now()
 );
+
+alter table integrantes_proyecto add column if not exists rol_permiso text default 'editor';
+update integrantes_proyecto
+set rol_permiso = 'editor'
+where rol_permiso is null or rol_permiso not in ('admin', 'editor', 'responsable', 'lector');
+alter table integrantes_proyecto alter column rol_permiso set default 'editor';
+alter table integrantes_proyecto alter column rol_permiso set not null;
 
 create table if not exists tareas_grupales (
   id uuid primary key default gen_random_uuid(),

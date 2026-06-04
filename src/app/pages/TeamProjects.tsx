@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
-import { Plus, UsersRound } from "lucide-react";
+import { Copy, Link2, Plus, UsersRound } from "lucide-react";
 import { PLANES, canUseTeamProjectsAdvanced } from "../data/plan-rules";
-import { formatearFechaCorta, useStudyFlow, type EstadoTareaGrupal } from "../data/studyflow-store";
+import {
+  formatearFechaCorta,
+  useStudyFlow,
+  type EstadoTareaGrupal,
+  type RolIntegranteProyecto,
+} from "../data/studyflow-store";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -19,6 +24,29 @@ const columnas: Array<{ estado: EstadoTareaGrupal; titulo: string }> = [
   { estado: "finalizado", titulo: "Finalizado" },
 ];
 
+const roles: Array<{ value: RolIntegranteProyecto; label: string }> = [
+  { value: "editor", label: "Editor" },
+  { value: "responsable", label: "Responsable" },
+  { value: "lector", label: "Lector" },
+  { value: "admin", label: "Admin" },
+];
+
+function obtenerIniciales(nombre: string) {
+  return (
+    nombre
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((parte) => parte[0]?.toUpperCase())
+      .join("") || "IN"
+  );
+}
+
+function obtenerEnlaceInvitacion(codigo: string) {
+  if (typeof window === "undefined") return `/app/team-projects?join=${codigo}`;
+  return `${window.location.origin}/app/team-projects?join=${codigo}`;
+}
+
 export default function TeamProjects() {
   const {
     usuarioActual,
@@ -32,6 +60,8 @@ export default function TeamProjects() {
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cursoId: "none", fechaLimite: "" });
   const [nuevoIntegrante, setNuevoIntegrante] = useState<Record<string, string>>({});
+  const [nuevoRol, setNuevoRol] = useState<Record<string, RolIntegranteProyecto>>({});
+  const [mensajeCopiado, setMensajeCopiado] = useState<Record<string, string>>({});
   const [nuevaTarea, setNuevaTarea] = useState<Record<string, string>>({});
   const puedeAvanzado = canUseTeamProjectsAdvanced(usuarioActual);
   const plan = PLANES[usuarioActual?.plan ?? "gratis"];
@@ -43,11 +73,14 @@ export default function TeamProjects() {
       0,
     );
     return {
-      totalTareas,
-      finalizadas,
       avance: totalTareas ? Math.round((finalizadas / totalTareas) * 100) : 0,
     };
   }, [proyectosGrupales]);
+
+  const copiar = async (proyectoId: string, texto: string, mensaje: string) => {
+    await navigator.clipboard?.writeText(texto);
+    setMensajeCopiado({ ...mensajeCopiado, [proyectoId]: mensaje });
+  };
 
   return (
     <div className="space-y-8">
@@ -55,7 +88,7 @@ export default function TeamProjects() {
         <div>
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Trabajos grupales</h1>
           <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
-            Coordina entregables, responsables y avance con un tablero academico tipo Kanban.
+            Coordina entregables, responsables, permisos basicos e invitaciones por enlace o codigo.
           </p>
         </div>
         <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
@@ -66,7 +99,9 @@ export default function TeamProjects() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nuevo trabajo grupal</DialogTitle></DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Nuevo trabajo grupal</DialogTitle>
+            </DialogHeader>
             <div className="space-y-4">
               <div>
                 <Label>Nombre</Label>
@@ -75,10 +110,16 @@ export default function TeamProjects() {
               <div>
                 <Label>Curso</Label>
                 <Select value={form.cursoId} onValueChange={(cursoId) => setForm({ ...form, cursoId })}>
-                  <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Sin curso</SelectItem>
-                    {cursos.map((curso) => <SelectItem key={curso.id} value={curso.id}>{curso.nombre}</SelectItem>)}
+                    {cursos.map((curso) => (
+                      <SelectItem key={curso.id} value={curso.id}>
+                        {curso.nombre}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -107,24 +148,9 @@ export default function TeamProjects() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600">Plan activo</p>
-            <p className="mt-1 text-2xl font-bold">{plan.etiqueta}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600">Trabajos activos</p>
-            <p className="mt-1 text-2xl font-bold">{proyectosGrupales.length}</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-lg">
-          <CardContent className="p-6">
-            <p className="text-sm text-gray-600">Avance global</p>
-            <p className="mt-1 text-2xl font-bold">{resumen.avance}%</p>
-          </CardContent>
-        </Card>
+        <Stat label="Plan activo" value={plan.etiqueta} />
+        <Stat label="Trabajos activos" value={`${proyectosGrupales.length}`} />
+        <Stat label="Avance global" value={`${resumen.avance}%`} />
       </div>
 
       {!puedeAvanzado ? (
@@ -159,41 +185,100 @@ export default function TeamProjects() {
                       {proyecto.nombre}
                     </CardTitle>
                     <p className="mt-2 text-sm text-gray-600">
-                      {curso?.nombre ?? "Proyecto transversal"} · vence {formatearFechaCorta(proyecto.fechaLimite)}
+                      {curso?.nombre ?? "Proyecto transversal"} - vence {formatearFechaCorta(proyecto.fechaLimite)}
                     </p>
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                      <div className="flex -space-x-2">
+                        {proyecto.integrantes.slice(0, 6).map((integrante) => (
+                          <div
+                            key={integrante.id}
+                            title={`${integrante.nombre} - ${integrante.rolPermiso}`}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-gradient-to-br from-blue-600 to-purple-600 text-xs font-bold text-white shadow-sm"
+                          >
+                            {obtenerIniciales(integrante.nombre)}
+                          </div>
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-600">
+                        {proyecto.integrantes.length} integrante{proyecto.integrantes.length === 1 ? "" : "s"}
+                      </span>
+                      <Badge className="bg-slate-100 text-slate-700">Codigo {proyecto.codigoInvitacion}</Badge>
+                    </div>
                   </div>
                   <div className="min-w-52">
-                    <div className="mb-2 flex justify-between text-sm"><span>Avance</span><span>{avance}%</span></div>
+                    <div className="mb-2 flex justify-between text-sm">
+                      <span>Avance</span>
+                      <span>{avance}%</span>
+                    </div>
                     <Progress value={avance} />
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+                <div className="grid gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 lg:grid-cols-[1fr_auto_auto]">
+                  <div>
+                    <p className="text-sm font-semibold text-blue-950">Invitar por enlace o codigo</p>
+                    <p className="mt-1 break-all text-sm text-blue-700">{obtenerEnlaceInvitacion(proyecto.codigoInvitacion)}</p>
+                    {mensajeCopiado[proyecto.id] ? <p className="mt-2 text-xs font-medium text-blue-700">{mensajeCopiado[proyecto.id]}</p> : null}
+                  </div>
+                  <Button variant="outline" className="bg-white" onClick={() => copiar(proyecto.id, obtenerEnlaceInvitacion(proyecto.codigoInvitacion), "Enlace copiado")}>
+                    <Link2 className="mr-2 h-4 w-4" />
+                    Copiar enlace
+                  </Button>
+                  <Button variant="outline" className="bg-white" onClick={() => copiar(proyecto.id, proyecto.codigoInvitacion, "Codigo copiado")}>
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar codigo
+                  </Button>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[1fr_190px_auto]">
                   <Input
                     placeholder="Agregar integrante"
                     value={nuevoIntegrante[proyecto.id] ?? ""}
                     onChange={(event) => setNuevoIntegrante({ ...nuevoIntegrante, [proyecto.id]: event.target.value })}
                   />
+                  <Select
+                    value={nuevoRol[proyecto.id] ?? "editor"}
+                    onValueChange={(rolPermiso: RolIntegranteProyecto) => setNuevoRol({ ...nuevoRol, [proyecto.id]: rolPermiso })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((rol) => (
+                        <SelectItem key={rol.value} value={rol.value}>
+                          {rol.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     onClick={() => {
                       const nombre = nuevoIntegrante[proyecto.id]?.trim();
                       if (!nombre) return;
-                      agregarIntegranteProyectoGrupal(proyecto.id, nombre);
+                      const rolPermiso = nuevoRol[proyecto.id] ?? "editor";
+                      agregarIntegranteProyectoGrupal(
+                        proyecto.id,
+                        nombre,
+                        roles.find((rol) => rol.value === rolPermiso)?.label ?? "Integrante",
+                        rolPermiso,
+                      );
                       setNuevoIntegrante({ ...nuevoIntegrante, [proyecto.id]: "" });
                     }}
                   >
                     Agregar integrante
                   </Button>
                 </div>
+
                 <div className="flex flex-wrap gap-2">
                   {avancePorIntegrante.map(({ integrante, promedio }) => (
                     <Badge key={integrante.id} className="bg-blue-50 text-blue-700">
-                      {integrante.nombre}: {promedio}%
+                      {integrante.nombre}: {promedio}% - {integrante.rolPermiso}
                     </Badge>
                   ))}
                 </div>
+
                 <div className="grid gap-4 xl:grid-cols-4">
                   {columnas.map((columna) => (
                     <div key={columna.estado} className="rounded-2xl bg-slate-50 p-3">
@@ -218,9 +303,15 @@ export default function TeamProjects() {
                                   })
                                 }
                               >
-                                <SelectTrigger className="mt-3 h-9"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="mt-3 h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
                                 <SelectContent>
-                                  {columnas.map((item) => <SelectItem key={item.estado} value={item.estado}>{item.titulo}</SelectItem>)}
+                                  {columnas.map((item) => (
+                                    <SelectItem key={item.estado} value={item.estado}>
+                                      {item.titulo}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                             </div>
@@ -230,6 +321,7 @@ export default function TeamProjects() {
                     </div>
                   ))}
                 </div>
+
                 <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_auto]">
                   <Input
                     placeholder="Nueva tarea del equipo"
@@ -237,9 +329,15 @@ export default function TeamProjects() {
                     onChange={(event) => setNuevaTarea({ ...nuevaTarea, [`${proyecto.id}-titulo`]: event.target.value })}
                   />
                   <Select onValueChange={(responsableId) => setNuevaTarea({ ...nuevaTarea, [`${proyecto.id}-responsable`]: responsableId })}>
-                    <SelectTrigger><SelectValue placeholder="Responsable" /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Responsable" />
+                    </SelectTrigger>
                     <SelectContent>
-                      {proyecto.integrantes.map((integrante) => <SelectItem key={integrante.id} value={integrante.id}>{integrante.nombre}</SelectItem>)}
+                      {proyecto.integrantes.map((integrante) => (
+                        <SelectItem key={integrante.id} value={integrante.id}>
+                          {integrante.nombre}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Input
@@ -265,5 +363,16 @@ export default function TeamProjects() {
         })}
       </div>
     </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <Card className="border-none shadow-lg">
+      <CardContent className="p-6">
+        <p className="text-sm text-gray-600">{label}</p>
+        <p className="mt-1 text-2xl font-bold">{value}</p>
+      </CardContent>
+    </Card>
   );
 }

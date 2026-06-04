@@ -39,6 +39,7 @@ import type {
   ProyectoGrupal,
   ProyectoLargo,
   ResultadoPlanificacionInteligente,
+  RolIntegranteProyecto,
   Subtarea,
   Tarea,
   TipoBloquePlanificador,
@@ -67,6 +68,7 @@ export type {
   ProyectoGrupal,
   ProyectoLargo,
   ResultadoPlanificacionInteligente,
+  RolIntegranteProyecto,
   Subtarea,
   Tarea,
   TipoBloquePlanificador,
@@ -158,10 +160,15 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
   eliminarProyectoLargo: (proyectoId: string) => void;
   agregarPasoProyectoLargo: (proyectoId: string, titulo: string, fase?: ProyectoLargo["faseActual"]) => void;
   alternarPasoProyectoLargo: (pasoId: string, completado: boolean) => void;
-  agregarProyectoGrupal: (proyecto: Omit<ProyectoGrupal, "id" | "integrantes" | "tareas">) => void;
+  agregarProyectoGrupal: (proyecto: Omit<ProyectoGrupal, "id" | "integrantes" | "tareas" | "codigoInvitacion">) => void;
   actualizarProyectoGrupal: (proyectoId: string, cambios: Partial<ProyectoGrupal>) => void;
   eliminarProyectoGrupal: (proyectoId: string) => void;
-  agregarIntegranteProyectoGrupal: (proyectoId: string, nombre: string, rol?: string) => void;
+  agregarIntegranteProyectoGrupal: (
+    proyectoId: string,
+    nombre: string,
+    rol?: string,
+    rolPermiso?: ProyectoGrupal["integrantes"][number]["rolPermiso"],
+  ) => void;
   agregarTareaProyectoGrupal: (proyectoId: string, titulo: string, fechaLimite: string, responsableId?: string) => void;
   actualizarTareaProyectoGrupal: (tareaId: string, cambios: Partial<ProyectoGrupal["tareas"][number]>) => void;
   sugerirMicroSesion: () => { duracion: number; mensaje: string; tareaId?: string };
@@ -363,6 +370,10 @@ function normalizarTareaApi(tarea: TareaApi, subtareas?: Subtarea[] | null): Tar
     estado: tarea.estado,
     subtareas: normalizarSubtareas(subtareas),
   };
+}
+
+function crearCodigoInvitacionLocal() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 function normalizarProyectoLargoApi(proyecto: ProyectoLargoApi): ProyectoLargo {
@@ -1597,10 +1608,11 @@ function crearEstadoInicial(): EstadoStudyFlow {
       nombre: "Exposicion de metodologias agiles",
       descripcion: "Trabajo grupal con guion, diapositivas y practica.",
       fechaLimite: format(addDays(hoy, 9), "yyyy-MM-dd"),
+      codigoInvitacion: "AGIL09",
       integrantes: [
-        { id: "member-1", proyectoId: "team-1", nombre: "Jhan", rol: "Coordinador" },
-        { id: "member-2", proyectoId: "team-1", nombre: "Lucia", rol: "Diapositivas" },
-        { id: "member-3", proyectoId: "team-1", nombre: "Diego", rol: "Investigacion" },
+        { id: "member-1", proyectoId: "team-1", nombre: "Jhan", rol: "Coordinador", rolPermiso: "admin" },
+        { id: "member-2", proyectoId: "team-1", nombre: "Lucia", rol: "Diapositivas", rolPermiso: "editor" },
+        { id: "member-3", proyectoId: "team-1", nombre: "Diego", rol: "Investigacion", rolPermiso: "responsable" },
       ],
       tareas: [
         { id: "team-task-1", proyectoId: "team-1", titulo: "Investigar Scrum y Kanban", responsableId: "member-3", fechaLimite: format(addDays(hoy, 3), "yyyy-MM-dd"), estado: "en_proceso", progreso: 55 },
@@ -2790,6 +2802,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           nombre: proyecto.nombre,
           descripcion: proyecto.descripcion,
           fechaLimite: proyecto.fechaLimite,
+          codigoInvitacion: crearCodigoInvitacionLocal(),
           integrantes: [],
           tareas: [],
         };
@@ -2819,15 +2832,15 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }));
         api.eliminarTrabajoGrupal(proyectoId).catch(() => {});
       },
-      agregarIntegranteProyectoGrupal: (proyectoId, nombre, rol = "Integrante") => {
-        const integrante = { id: crearId("member"), proyectoId, nombre, rol };
+      agregarIntegranteProyectoGrupal: (proyectoId, nombre, rol = "Integrante", rolPermiso = "editor") => {
+        const integrante = { id: crearId("member"), proyectoId, nombre, rol, rolPermiso };
         setEstado((actual) => ({
           ...actual,
           proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
             proyecto.id === proyectoId ? { ...proyecto, integrantes: [...proyecto.integrantes, integrante] } : proyecto,
           ),
         }));
-        api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, rol }).catch(() => {});
+        api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, rol, rolPermiso }).catch(() => {});
       },
       agregarTareaProyectoGrupal: (proyectoId, titulo, fechaLimite, responsableId) => {
         const tarea = {

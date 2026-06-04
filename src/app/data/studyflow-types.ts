@@ -148,12 +148,14 @@ export type ProyectoLargo = {
 };
 
 export type EstadoTareaGrupal = "pendiente" | "en_proceso" | "en_revision" | "finalizado";
+export type RolIntegranteProyecto = "admin" | "editor" | "responsable" | "lector";
 
 export type IntegranteProyecto = {
   id: string;
   proyectoId: string;
   nombre: string;
   rol: string;
+  rolPermiso: RolIntegranteProyecto;
 };
 
 export type TareaGrupal = {
@@ -172,6 +174,7 @@ export type ProyectoGrupal = {
   nombre: string;
   descripcion: string;
   fechaLimite: string;
+  codigoInvitacion: string;
   integrantes: IntegranteProyecto[];
   tareas: TareaGrupal[];
 };

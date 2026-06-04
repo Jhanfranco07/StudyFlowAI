@@ -142,6 +142,7 @@ export function mapearIntegranteProyecto(row) {
     proyectoId: row.proyectoId,
     nombre: row.nombre,
     rol: row.rol ?? "Integrante",
+    rolPermiso: row.rolPermiso ?? "editor",
   };
 }
 
@@ -164,6 +165,7 @@ export function mapearProyectoGrupal(row, integrantes = [], tareas = []) {
     nombre: row.nombre,
     descripcion: row.descripcion ?? "",
     fechaLimite: row.fechaLimite,
+    codigoInvitacion: row.codigoInvitacion,
     integrantes,
     tareas,
   };

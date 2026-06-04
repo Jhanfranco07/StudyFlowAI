@@ -1219,6 +1219,14 @@ function construirCamposActualizacion(body, mapa) {
   return { sets, valores };
 }
 
+function crearCodigoInvitacion() {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
+
+function normalizarRolPermiso(valor) {
+  return ["admin", "editor", "responsable", "lector"].includes(valor) ? valor : "editor";
+}
+
 async function obtenerContextoEstudiante(estudianteId) {
   const [usuario, cursos, tareas, examenes, bloquesPlanificador, notificaciones, mensajesChat] =
     await Promise.all([
@@ -1461,7 +1469,8 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
       curso_id as "cursoId",
       nombre,
       descripcion,
-      fecha_limite as "fechaLimite"
+      fecha_limite as "fechaLimite",
+      codigo_invitacion as "codigoInvitacion"
     from proyectos_grupales
     where estudiante_id = $1
     order by fecha_limite asc
@@ -1471,7 +1480,7 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
   const ids = proyectos.rows.map((proyecto) => proyecto.id);
   const integrantes = await pool.query(
     `
-    select id, proyecto_id as "proyectoId", nombre, rol
+    select id, proyecto_id as "proyectoId", nombre, rol, rol_permiso as "rolPermiso"
     from integrantes_proyecto
     where proyecto_id = any($1::uuid[])
     order by creado_en asc
@@ -1519,7 +1528,7 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
 async function obtenerProyectoGrupalPorId(proyectoId) {
   const proyecto = await pool.query(
     `
-    select id, estudiante_id as "estudianteId", curso_id as "cursoId", nombre, descripcion, fecha_limite as "fechaLimite"
+    select id, estudiante_id as "estudianteId", curso_id as "cursoId", nombre, descripcion, fecha_limite as "fechaLimite", codigo_invitacion as "codigoInvitacion"
     from proyectos_grupales
     where id = $1
     limit 1
@@ -1529,7 +1538,7 @@ async function obtenerProyectoGrupalPorId(proyectoId) {
   const row = proyecto.rows[0];
   if (!row) return null;
   const [integrantes, tareas] = await Promise.all([
-    pool.query("select id, proyecto_id as \"proyectoId\", nombre, rol from integrantes_proyecto where proyecto_id = $1 order by creado_en asc", [proyectoId]),
+    pool.query("select id, proyecto_id as \"proyectoId\", nombre, rol, rol_permiso as \"rolPermiso\" from integrantes_proyecto where proyecto_id = $1 order by creado_en asc", [proyectoId]),
     pool.query(
       `
       select id, proyecto_id as "proyectoId", titulo, responsable_id as "responsableId", fecha_limite as "fechaLimite", estado, progreso
@@ -1603,18 +1612,29 @@ async function asegurarColumnasCompatibilidad() {
       nombre text not null,
       descripcion text default '',
       fecha_limite date not null,
+      codigo_invitacion text not null default upper(substr(md5(random()::text), 1, 6)),
       creado_en timestamptz not null default now()
     )
   `);
+  await pool.query("alter table proyectos_grupales add column if not exists codigo_invitacion text");
+  await pool.query("update proyectos_grupales set codigo_invitacion = upper(substr(md5(id::text), 1, 6)) where codigo_invitacion is null or codigo_invitacion = ''");
+  await pool.query("alter table proyectos_grupales alter column codigo_invitacion set default upper(substr(md5(random()::text), 1, 6))");
+  await pool.query("alter table proyectos_grupales alter column codigo_invitacion set not null");
+  await pool.query("create unique index if not exists proyectos_grupales_codigo_invitacion_unique on proyectos_grupales (codigo_invitacion)");
   await pool.query(`
     create table if not exists integrantes_proyecto (
       id uuid primary key default gen_random_uuid(),
       proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
       nombre text not null,
       rol text default 'Integrante',
+      rol_permiso text not null default 'editor',
       creado_en timestamptz not null default now()
     )
   `);
+  await pool.query("alter table integrantes_proyecto add column if not exists rol_permiso text default 'editor'");
+  await pool.query("update integrantes_proyecto set rol_permiso = 'editor' where rol_permiso is null or rol_permiso not in ('admin', 'editor', 'responsable', 'lector')");
+  await pool.query("alter table integrantes_proyecto alter column rol_permiso set default 'editor'");
+  await pool.query("alter table integrantes_proyecto alter column rol_permiso set not null");
   await pool.query(`
     create table if not exists tareas_grupales (
       id uuid primary key default gen_random_uuid(),
@@ -2697,13 +2717,14 @@ app.post("/api/trabajos-grupales", async (request, response) => {
 
   const { estudianteId, cursoId, nombre, descripcion = "", fechaLimite } = request.body;
   try {
+    const codigoInvitacion = crearCodigoInvitacion();
     const resultado = await pool.query(
       `
-      insert into proyectos_grupales (estudiante_id, curso_id, nombre, descripcion, fecha_limite)
-      values ($1, $2, $3, $4, $5)
+      insert into proyectos_grupales (estudiante_id, curso_id, nombre, descripcion, fecha_limite, codigo_invitacion)
+      values ($1, $2, $3, $4, $5, $6)
       returning id
       `,
-      [estudianteId, cursoId || null, nombre, descripcion, fechaLimite],
+      [estudianteId, cursoId || null, nombre, descripcion, fechaLimite, codigoInvitacion],
     );
     response.status(201).json(await obtenerProyectoGrupalPorId(resultado.rows[0].id));
   } catch (error) {
@@ -2745,11 +2766,12 @@ app.delete("/api/trabajos-grupales/:proyectoId", async (request, response) => {
 app.post("/api/trabajos-grupales/:proyectoId/integrantes", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const { nombre, rol = "Integrante" } = request.body;
+  const { nombre, rol = "Integrante", rolPermiso = "editor" } = request.body;
+  const rolPermisoNormalizado = normalizarRolPermiso(rolPermiso);
   try {
     await pool.query(
-      "insert into integrantes_proyecto (proyecto_id, nombre, rol) values ($1, $2, $3)",
-      [request.params.proyectoId, nombre, rol],
+      "insert into integrantes_proyecto (proyecto_id, nombre, rol, rol_permiso) values ($1, $2, $3, $4)",
+      [request.params.proyectoId, nombre, rol, rolPermisoNormalizado],
     );
     response.status(201).json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
   } catch (error) {

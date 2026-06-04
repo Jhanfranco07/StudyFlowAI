@@ -219,7 +219,14 @@ export type ProyectoGrupalApi = {
   nombre: string;
   descripcion: string;
   fechaLimite: string;
-  integrantes: Array<{ id: string; proyectoId: string; nombre: string; rol: string }>;
+  codigoInvitacion: string;
+  integrantes: Array<{
+    id: string;
+    proyectoId: string;
+    nombre: string;
+    rol: string;
+    rolPermiso: "admin" | "editor" | "responsable" | "lector";
+  }>;
   tareas: Array<{
     id: string;
     proyectoId: string;
@@ -512,7 +519,10 @@ export const api = {
       method: "DELETE",
     });
   },
-  agregarIntegranteTrabajoGrupal(proyectoId: string, payload: { nombre: string; rol: string }) {
+  agregarIntegranteTrabajoGrupal(
+    proyectoId: string,
+    payload: { nombre: string; rol: string; rolPermiso?: "admin" | "editor" | "responsable" | "lector" },
+  ) {
     return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}/integrantes`, {
       method: "POST",
       body: JSON.stringify(payload),
