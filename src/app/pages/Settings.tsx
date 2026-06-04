@@ -13,6 +13,12 @@ import {
   User,
 } from "lucide-react";
 import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
+import {
+  DURACIONES_MICRO_SESION,
+  OBJETIVOS_ACADEMICOS,
+  TIPOS_PERFIL,
+  obtenerMensajeRecomendacionPlan,
+} from "../data/plan-rules";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -67,6 +73,11 @@ export default function Settings() {
         descripcion: "Incluye planificador inteligente y uso ilimitado del agente para estudiar.",
         estilo: "bg-purple-100 text-purple-700",
       },
+      premium_plus: {
+        etiqueta: "Plan Premium Plus",
+        descripcion: "Incluye productividad avanzada para trabajo, estudio, tesis y micro-sesiones.",
+        estilo: "bg-indigo-100 text-indigo-700",
+      },
     };
 
     return contenido[perfil.plan];
@@ -79,6 +90,11 @@ export default function Settings() {
     setEstadoGuardado("saved");
     window.setTimeout(() => setEstadoGuardado("idle"), 2500);
   };
+  const recomendacionPlan = obtenerMensajeRecomendacionPlan(perfil);
+  const muestraCamposProfesionales =
+    perfil.tipoPerfil === "posgrado" ||
+    perfil.tipoPerfil === "profesional_estudia" ||
+    perfil.tipoPerfil === "diplomado_maestria";
 
   const resumenPermisoNavegador = {
     granted: {
@@ -239,6 +255,60 @@ export default function Settings() {
             </Select>
           </div>
           <div>
+            <Label>Tipo de perfil</Label>
+            <Select
+              value={perfil.tipoPerfil}
+              onValueChange={(tipoPerfil: PerfilUsuario["tipoPerfil"]) => setPerfil({ ...perfil, tipoPerfil })}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(TIPOS_PERFIL).map(([valor, etiqueta]) => (
+                  <SelectItem key={valor} value={valor}>
+                    {etiqueta}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Plan actual</Label>
+            <Select
+              value={perfil.plan}
+              onValueChange={(plan: PerfilUsuario["plan"]) => setPerfil({ ...perfil, plan })}
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="gratis">Gratis</SelectItem>
+                <SelectItem value="premium">Premium</SelectItem>
+                <SelectItem value="premium_plus">Premium Plus</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Objetivo academico principal</Label>
+            <Select
+              value={perfil.objetivoAcademico}
+              onValueChange={(objetivoAcademico: PerfilUsuario["objetivoAcademico"]) =>
+                setPerfil({ ...perfil, objetivoAcademico })
+              }
+            >
+              <SelectTrigger className="mt-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {OBJETIVOS_ACADEMICOS.map((objetivo) => (
+                  <SelectItem key={objetivo.valor} value={objetivo.valor}>
+                    {objetivo.etiqueta}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>Horas disponibles</Label>
             <Select
               value={perfil.horasDisponibles}
@@ -255,6 +325,83 @@ export default function Settings() {
               </SelectContent>
             </Select>
           </div>
+          {recomendacionPlan ? (
+            <div className="md:col-span-2 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+              {recomendacionPlan}
+            </div>
+          ) : null}
+          {muestraCamposProfesionales ? (
+            <>
+              <div>
+                <Label>Horario laboral aproximado</Label>
+                <Input
+                  value={perfil.horarioLaboral}
+                  onChange={(event) => setPerfil({ ...perfil, horarioLaboral: event.target.value })}
+                  className="mt-2"
+                  placeholder="Lun-vie 9:00 a 18:00, variable"
+                />
+              </div>
+              <div>
+                <Label>Dias con mayor disponibilidad</Label>
+                <Input
+                  value={perfil.diasMayorDisponibilidad}
+                  onChange={(event) => setPerfil({ ...perfil, diasMayorDisponibilidad: event.target.value })}
+                  className="mt-2"
+                  placeholder="Martes noche, sabado manana"
+                />
+              </div>
+              <div>
+                <Label>Tiempo real disponible al dia</Label>
+                <Select
+                  value={`${perfil.tiempoRealDisponibleDia}`}
+                  onValueChange={(tiempoRealDisponibleDia) =>
+                    setPerfil({ ...perfil, tiempoRealDisponibleDia: Number(tiempoRealDisponibleDia) })
+                  }
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.5">30 min</SelectItem>
+                    <SelectItem value="1">1 hora</SelectItem>
+                    <SelectItem value="1.5">1.5 horas</SelectItem>
+                    <SelectItem value="2">2 horas</SelectItem>
+                    <SelectItem value="3">3 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Preferencia de micro-sesion</Label>
+                <Select
+                  value={`${perfil.preferenciaMicroSesion}`}
+                  onValueChange={(preferenciaMicroSesion) =>
+                    setPerfil({ ...perfil, preferenciaMicroSesion: Number(preferenciaMicroSesion) as PerfilUsuario["preferenciaMicroSesion"] })
+                  }
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURACIONES_MICRO_SESION.map((duracion) => (
+                      <SelectItem key={duracion} value={`${duracion}`}>
+                        {duracion} minutos
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2 flex items-center justify-between rounded-2xl bg-slate-50 p-4">
+                <div>
+                  <Label>Tiene tesis o proyecto final</Label>
+                  <p className="mt-1 text-sm text-gray-500">Activa recomendaciones de avance gradual y alertas de falta de progreso.</p>
+                </div>
+                <Switch
+                  checked={perfil.tieneTesisProyecto}
+                  onCheckedChange={(tieneTesisProyecto) => setPerfil({ ...perfil, tieneTesisProyecto })}
+                />
+              </div>
+            </>
+          ) : null}
           <div>
             <Label>Método de estudio</Label>
             <Select

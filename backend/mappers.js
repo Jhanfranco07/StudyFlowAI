@@ -10,6 +10,13 @@ export function mapearUsuario(row) {
     carrera: row.carrera,
     semestre: row.semestre,
     plan: row.plan ?? "gratis",
+    tipoPerfil: row.tipoPerfil ?? "universitario",
+    objetivoAcademico: row.objetivoAcademico ?? "aprobar_cursos",
+    preferenciaMicroSesion: row.preferenciaMicroSesion ?? 20,
+    horarioLaboral: row.horarioLaboral ?? null,
+    diasMayorDisponibilidad: row.diasMayorDisponibilidad ?? null,
+    tieneTesisProyecto: row.tieneTesisProyecto ?? false,
+    tiempoRealDisponibleDia: row.tiempoRealDisponibleDia ?? null,
     emailVerificado: row.emailVerificado ?? false,
     horasDisponibles: row.horasDisponibles ?? null,
     metodoEstudio: row.metodoEstudio ?? null,
@@ -101,5 +108,63 @@ export function mapearMensajeChat(row) {
     mensaje: row.mensaje,
     hora: row.hora,
     creadaEn: row.creadaEn,
+  };
+}
+
+export function mapearPasoProyectoLargo(row) {
+  return {
+    id: row.id,
+    proyectoId: row.proyectoId,
+    titulo: row.titulo,
+    fase: row.fase,
+    completado: row.completado,
+  };
+}
+
+export function mapearProyectoLargo(row, pasos = []) {
+  return {
+    id: row.id,
+    cursoId: row.cursoId ?? undefined,
+    titulo: row.titulo,
+    descripcion: row.descripcion ?? "",
+    tipo: row.tipo,
+    fechaLimite: row.fechaLimite,
+    faseActual: row.faseActual,
+    progreso: row.progreso,
+    ultimoAvance: row.ultimoAvance,
+    pasos,
+  };
+}
+
+export function mapearIntegranteProyecto(row) {
+  return {
+    id: row.id,
+    proyectoId: row.proyectoId,
+    nombre: row.nombre,
+    rol: row.rol ?? "Integrante",
+  };
+}
+
+export function mapearTareaGrupal(row) {
+  return {
+    id: row.id,
+    proyectoId: row.proyectoId,
+    titulo: row.titulo,
+    responsableId: row.responsableId ?? undefined,
+    fechaLimite: row.fechaLimite,
+    estado: row.estado,
+    progreso: row.progreso,
+  };
+}
+
+export function mapearProyectoGrupal(row, integrantes = [], tareas = []) {
+  return {
+    id: row.id,
+    cursoId: row.cursoId ?? undefined,
+    nombre: row.nombre,
+    descripcion: row.descripcion ?? "",
+    fechaLimite: row.fechaLimite,
+    integrantes,
+    tareas,
   };
 }

@@ -1,6 +1,35 @@
 export type Prioridad = "low" | "medium" | "high";
 export type EstadoTarea = "pending" | "in-progress" | "completed" | "overdue";
 export type TipoNotificacion = "urgent" | "warning" | "info" | "success";
+export type PlanUsuario = "gratis" | "estudiante" | "premium" | "premium_plus";
+export type TipoPerfilUsuario =
+  | "universitario"
+  | "instituto"
+  | "posgrado"
+  | "profesional_estudia"
+  | "diplomado_maestria";
+export type ObjetivoAcademico =
+  | "aprobar_cursos"
+  | "preparar_examenes"
+  | "avanzar_tesis"
+  | "terminar_proyecto_final"
+  | "organizar_trabajo_estudio"
+  | "mejorar_productividad";
+export type PreferenciaMicroSesion = 15 | 20 | 30 | 45;
+export type TipoBloquePlanificador =
+  | "class"
+  | "study"
+  | "exam"
+  | "break"
+  | "task"
+  | "review"
+  | "work"
+  | "personal"
+  | "commute"
+  | "project_thesis"
+  | "micro_session"
+  | "academic_meeting"
+  | "research";
 export type JornadaPlanificacion = "manana" | "tarde" | "noche" | "flexible";
 export type AlcancePlanificacion = "todo" | "tarea" | "curso";
 export type ModoPlanificacionTodo =
@@ -32,7 +61,14 @@ export type PerfilUsuario = {
   universidad: string;
   carrera: string;
   semestre: string;
-  plan: "gratis" | "estudiante" | "premium";
+  plan: PlanUsuario;
+  tipoPerfil: TipoPerfilUsuario;
+  objetivoAcademico: ObjetivoAcademico;
+  preferenciaMicroSesion: PreferenciaMicroSesion;
+  horarioLaboral: string;
+  diasMayorDisponibilidad: string;
+  tieneTesisProyecto: boolean;
+  tiempoRealDisponibleDia: number;
   emailVerificado: boolean;
   horasDisponibles: string;
   metodoEstudio: string;
@@ -79,6 +115,67 @@ export type Tarea = {
   subtareas: Subtarea[];
 };
 
+export type TipoProyectoLargo =
+  | "tesis"
+  | "proyecto_final"
+  | "investigacion"
+  | "articulo"
+  | "exposicion_grande"
+  | "caso_negocio"
+  | "otro";
+
+export type FaseProyectoLargo = "investigacion" | "estructura" | "redaccion" | "revision" | "entrega";
+
+export type PasoProyectoLargo = {
+  id: string;
+  proyectoId: string;
+  titulo: string;
+  fase: FaseProyectoLargo;
+  completado: boolean;
+};
+
+export type ProyectoLargo = {
+  id: string;
+  cursoId?: string;
+  titulo: string;
+  descripcion: string;
+  tipo: TipoProyectoLargo;
+  fechaLimite: string;
+  faseActual: FaseProyectoLargo;
+  progreso: number;
+  ultimoAvance: string;
+  pasos: PasoProyectoLargo[];
+};
+
+export type EstadoTareaGrupal = "pendiente" | "en_proceso" | "en_revision" | "finalizado";
+
+export type IntegranteProyecto = {
+  id: string;
+  proyectoId: string;
+  nombre: string;
+  rol: string;
+};
+
+export type TareaGrupal = {
+  id: string;
+  proyectoId: string;
+  titulo: string;
+  responsableId?: string;
+  fechaLimite: string;
+  estado: EstadoTareaGrupal;
+  progreso: number;
+};
+
+export type ProyectoGrupal = {
+  id: string;
+  cursoId?: string;
+  nombre: string;
+  descripcion: string;
+  fechaLimite: string;
+  integrantes: IntegranteProyecto[];
+  tareas: TareaGrupal[];
+};
+
 export type Examen = {
   id: string;
   cursoId: string;
@@ -97,7 +194,7 @@ export type BloquePlanificador = {
   titulo: string;
   cursoId?: string;
   color: string;
-  tipo: "class" | "study" | "exam" | "break";
+  tipo: TipoBloquePlanificador;
 };
 
 export type NotificacionItem = {

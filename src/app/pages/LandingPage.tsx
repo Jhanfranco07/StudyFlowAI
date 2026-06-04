@@ -157,6 +157,23 @@ const planes = [
     cta: "Elegir Premium",
     destacado: true,
   },
+  {
+    nombre: "Premium Plus",
+    subtitulo: "Para posgrado y profesionales que trabajan y estudian.",
+    precio: "S/ 14.99",
+    caracteristicas: [
+      "Todo lo del Premium.",
+      "Planificacion adaptada al horario laboral.",
+      "Micro-sesiones de estudio.",
+      "Seguimiento de tesis y proyectos largos.",
+      "Dashboard avanzado de productividad.",
+      "Trabajo colaborativo avanzado.",
+    ],
+    nota: "No necesitas este plan para usar StudyFlow. Es una version avanzada para quienes combinan trabajo, estudio y proyectos largos.",
+    destino: "/register?plan=premium_plus",
+    cta: "Probar Premium Plus",
+    destacado: false,
+  },
 ];
 
 const testimonios = [
@@ -600,7 +617,7 @@ export default function LandingPage() {
               <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Planes simples para estudiantes</h2>
               <p className="mt-5 text-lg leading-8 text-slate-600">Empieza gratis y escala cuando necesites más cursos, IA y colaboración.</p>
             </div>
-            <div className="mx-auto mt-12 grid max-w-5xl gap-6 md:grid-cols-2">
+            <div className="mx-auto mt-12 grid max-w-7xl gap-6 lg:grid-cols-3">
               {planes.map((plan) => (
                 <Card key={plan.nombre} className={`sf-reveal relative overflow-hidden border-2 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl ${plan.destacado ? "border-blue-500 shadow-xl shadow-blue-600/10" : "border-slate-200"}`}>
                   {plan.destacado && (
@@ -624,9 +641,15 @@ export default function LandingPage() {
                         </li>
                       ))}
                     </ul>
+                    {"nota" in plan ? <p className="mt-5 rounded-2xl bg-blue-50 p-4 text-sm text-blue-700">{plan.nota}</p> : null}
                     <Button asChild variant={plan.destacado ? "default" : "outline"} className={`sf-button mt-8 h-12 w-full rounded-xl ${plan.destacado ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-600/20 hover:from-blue-700 hover:to-purple-700" : "border-slate-300"}`}>
                       <Link to={plan.destino}>{plan.cta}</Link>
                     </Button>
+                    {plan.nombre === "Premium Plus" ? (
+                      <Button asChild variant="ghost" className="mt-3 h-11 w-full rounded-xl text-blue-700">
+                        <Link to="/register?plan=premium_plus">Ver funciones para posgrado</Link>
+                      </Button>
+                    ) : null}
                   </CardContent>
                 </Card>
               ))}

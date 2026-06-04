@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { GraduationCap, Lock, Mail, School, User } from "lucide-react";
-import { useStudyFlow } from "../data/studyflow-store";
+import { useStudyFlow, type TipoPerfilUsuario } from "../data/studyflow-store";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -12,6 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { TIPOS_PERFIL, type PlanUsuario } from "../data/plan-rules";
+
+type FormularioRegistro = {
+  name: string;
+  email: string;
+  password: string;
+  university: string;
+  career: string;
+  semester: string;
+  plan: PlanUsuario;
+  tipoPerfil: TipoPerfilUsuario;
+};
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -21,20 +33,22 @@ export default function RegisterPage() {
     gratis: "Gratis",
     estudiante: "Premium",
     premium: "Premium",
+    premium_plus: "Premium Plus",
   } as const;
   const planInicial = (() => {
     const plan = searchParams.get("plan");
-    return plan === "premium" || plan === "estudiante" ? plan : "gratis";
+    return plan === "premium_plus" || plan === "premium" || plan === "estudiante" ? plan : "gratis";
   })();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormularioRegistro>({
     name: "",
     email: "",
     password: "",
     university: "",
     career: "",
     semester: "",
-    plan: planInicial as "gratis" | "estudiante" | "premium",
+    plan: planInicial as PlanUsuario,
+    tipoPerfil: "universitario" as const,
   });
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -156,6 +170,25 @@ export default function RegisterPage() {
                 placeholder="Ingeniería de Sistemas"
                 required
               />
+            </div>
+
+            <div>
+              <Label>Tipo de perfil</Label>
+              <Select
+                value={formData.tipoPerfil}
+                onValueChange={(tipoPerfil: TipoPerfilUsuario) => setFormData({ ...formData, tipoPerfil })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona tu perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPOS_PERFIL).map(([valor, etiqueta]) => (
+                    <SelectItem key={valor} value={valor}>
+                      {etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div>

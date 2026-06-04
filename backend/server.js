@@ -2,7 +2,6 @@
 import cors from "cors";
 import express from "express";
 import { OAuth2Client } from "google-auth-library";
-import OpenAI from "openai";
 import pkg from "pg";
 import {
   crearHashContrasena,
@@ -20,12 +19,22 @@ import {
   enviarCorreo,
 } from "./email-service.js";
 import {
+  generarRespuestaProveedorIA,
+  hayClienteIAConfigurado,
+  obtenerProveedorIAActivo,
+} from "./ai-service.js";
+import {
   mapearBloque,
   mapearCurso,
   mapearExamen,
   mapearMensajeChat,
   mapearNotificacion,
+  mapearIntegranteProyecto,
+  mapearPasoProyectoLargo,
+  mapearProyectoGrupal,
+  mapearProyectoLargo,
   mapearTarea,
+  mapearTareaGrupal,
   mapearUsuario,
 } from "./mappers.js";
 
@@ -34,20 +43,12 @@ const { Pool } = pkg;
 const app = express();
 const puerto = Number(process.env.PORT || 4000);
 const urlBaseDeDatos = process.env.DATABASE_URL;
-const groqApiKey = process.env.GROQ_API_KEY;
-const modeloGroq = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
 const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
 
 app.use(cors());
 app.use(express.json());
 
 const pool = urlBaseDeDatos ? new Pool({ connectionString: urlBaseDeDatos }) : null;
-const clienteGroq = groqApiKey
-  ? new OpenAI({
-      apiKey: groqApiKey,
-      baseURL: "https://api.groq.com/openai/v1",
-    })
-  : null;
 const clienteGoogle = googleClientId ? new OAuth2Client(googleClientId) : null;
 
 async function enviarVerificacionCorreo({ estudianteId, nombres, correo }) {
@@ -995,6 +996,13 @@ function construirContextoIA(contexto) {
           horasEstudioDiarias: contexto.usuario.horasEstudioDiarias,
           horasSueno: contexto.usuario.horasSueno,
           plan: contexto.usuario.plan,
+          tipoPerfil: contexto.usuario.tipoPerfil,
+          objetivoAcademico: contexto.usuario.objetivoAcademico,
+          preferenciaMicroSesion: contexto.usuario.preferenciaMicroSesion,
+          horarioLaboral: contexto.usuario.horarioLaboral,
+          diasMayorDisponibilidad: contexto.usuario.diasMayorDisponibilidad,
+          tieneTesisProyecto: contexto.usuario.tieneTesisProyecto,
+          tiempoRealDisponibleDia: contexto.usuario.tiempoRealDisponibleDia,
         }
       : null,
     cursos: cursos.slice(0, 4).map((curso) => ({
@@ -1035,6 +1043,26 @@ function construirContextoIA(contexto) {
       cursoNombre: bloque.cursoId ? cursosPorId.get(bloque.cursoId)?.nombre ?? "Curso no identificado" : null,
       tipo: bloque.tipo,
     })),
+    proyectosLargos: (contexto.proyectosLargos ?? []).slice(0, 4).map((proyecto) => ({
+      id: proyecto.id,
+      titulo: proyecto.titulo,
+      tipo: proyecto.tipo,
+      fechaLimite: formatearFechaRespuesta(proyecto.fechaLimite),
+      faseActual: proyecto.faseActual,
+      progreso: proyecto.progreso,
+      pasosPendientes: proyecto.pasos?.filter((paso) => !paso.completado).slice(0, 3).map((paso) => paso.titulo) ?? [],
+    })),
+    proyectosGrupales: (contexto.proyectosGrupales ?? []).slice(0, 3).map((proyecto) => ({
+      id: proyecto.id,
+      nombre: proyecto.nombre,
+      fechaLimite: formatearFechaRespuesta(proyecto.fechaLimite),
+      integrantes: proyecto.integrantes?.map((integrante) => integrante.nombre) ?? [],
+      tareasPendientes: proyecto.tareas?.filter((tarea) => tarea.estado !== "finalizado").slice(0, 4).map((tarea) => ({
+        titulo: tarea.titulo,
+        estado: tarea.estado,
+        progreso: tarea.progreso,
+      })) ?? [],
+    })),
     resumenContextual: {
       totalCursos: cursos.length,
       totalTareas: contexto.tareas.length,
@@ -1058,8 +1086,8 @@ function construirContextoIA(contexto) {
 }
 
 async function generarRespuestaConIA({ mensaje, contexto }) {
-  if (!clienteGroq) {
-    throw new Error("GROQ_API_KEY no configurada en el backend.");
+  if (!hayClienteIAConfigurado()) {
+    throw new Error(`${obtenerProveedorIAActivo().toUpperCase()} no configurado en el backend.`);
   }
 
   const contextoCompacto = construirContextoIA(contexto);
@@ -1068,19 +1096,28 @@ async function generarRespuestaConIA({ mensaje, contexto }) {
   const herramientasLocales = construirHerramientasLocales(contexto);
   const herramientasBase = ejecutarHerramientasBase(herramientasLocales);
   const instruccionTono = construirInstruccionTono(contextoCompacto.usuario?.tonoAsistente);
+  const perfil = contextoCompacto.usuario;
+  const esPerfilProfesional =
+    perfil?.tipoPerfil === "posgrado" ||
+    perfil?.tipoPerfil === "profesional_estudia" ||
+    perfil?.tipoPerfil === "diplomado_maestria";
+  const instrucciones =
+    `Eres StudyFlow AI, un asistente academico y de productividad en espanol. Responde con tono claro, util, conversacional, humano y profesional. ${instruccionTono} ` +
+    `Debes basarte en los datos reales del sistema y no inventar datos. Usa los totales explicitos del contexto para cantidades. ` +
+    `Adapta la respuesta al tipo_perfil y plan. Si el usuario es universitario o instituto, prioriza cursos, tareas, examenes y estudio regular. ` +
+    `Si el usuario es posgrado, profesional que trabaja y estudia, diplomado o maestria, considera horario laboral, cansancio, poco tiempo, micro-sesiones, tesis/proyectos largos, trabajo colaborativo y balance personal. ` +
+    `No propongas horarios poco realistas. Sugiere pasos pequenos para retomar el ritmo. Premium Plus es una recomendacion suave, nunca una obligacion. ` +
+    `Si una funcion avanzada no esta en el plan actual, muestra una vista previa o recomendacion elegante sin bloquear agresivamente.`;
+
   const messages = [
-    {
-      role: "system",
-      content:
-        `Eres StudyFlow AI, un asistente académico universitario en español. Responde con tono claro, útil, conversacional, humano y profesional. ${instruccionTono} Debes basarte en los datos reales del sistema y en las herramientas disponibles. No inventes datos del estudiante. Si el usuario pregunta por tareas, cursos, exámenes, prioridades, seguimiento de lo hablado o referencias como 'eso', 'esas tareas', 'lo anterior', debes apoyarte en el historial reciente y en los resultados reales de herramientas antes de responder. Cuando hables de cantidades, usa siempre los totales explícitos del contexto y de las herramientas; no infieras cantidades por el largo de listas de muestra o preview porque pueden venir truncadas. Si aplica, distingue entre tareas activas, pendientes vigentes y atrasadas. Nunca digas que falta información si ya existe en el contexto o en las herramientas base cargadas. Evita sonar como bot automático o menú fijo; responde como un asesor académico que recuerda la conversación.`,
-    },
     {
       role: "system",
       content:
         `Contexto compacto del estudiante:\n${JSON.stringify(contextoCompacto)}\n\n` +
         `Resumen humano del contexto:\n${resumenContextualTexto}\n\n` +
         `Historial reciente de la conversacion:\n${historialConversacion || "Sin mensajes previos relevantes."}\n\n` +
-        `Resultados de herramientas base ya consultadas para este turno:\n${JSON.stringify(herramientasBase)}`,
+        `Resultados de herramientas base ya consultadas para este turno:\n${JSON.stringify(herramientasBase)}\n\n` +
+        `Orientacion de perfil: ${esPerfilProfesional ? "trabajo + estudio + vida personal; prioriza micro-sesiones y proyectos largos." : "academico regular; prioriza cursos, examenes y tareas."}`,
     },
     ...contexto.mensajesChat.slice(-2).map((item) => ({
       role: item.tipo === "user" ? "user" : "assistant",
@@ -1092,66 +1129,15 @@ async function generarRespuestaConIA({ mensaje, contexto }) {
     },
   ];
 
-  const primeraRespuesta = await clienteGroq.chat.completions.create({
-    model: modeloGroq,
-    messages,
-    tools: obtenerDefinicionesHerramientas(),
-    tool_choice: "auto",
-    temperature: 0.3,
+  const respuesta = await generarRespuestaProveedorIA({
+    instrucciones,
+    mensajes: messages,
+    timeoutMs: 18000,
   });
 
-  const opcionInicial = primeraRespuesta.choices[0]?.message;
-  if (!opcionInicial) {
-    throw new Error("Groq no devolvio una respuesta valida.");
-  }
-
-  if (opcionInicial.tool_calls?.length) {
-    messages.push(opcionInicial);
-
-    for (const toolCall of opcionInicial.tool_calls) {
-      const nombreFuncion = toolCall.function?.name;
-      const herramienta = nombreFuncion ? herramientasLocales[nombreFuncion] : null;
-
-      if (!herramienta) {
-        messages.push({
-          role: "tool",
-          tool_call_id: toolCall.id,
-          content: JSON.stringify({ error: `Herramienta no disponible: ${nombreFuncion}` }),
-        });
-        continue;
-      }
-
-      const resultado = herramienta();
-      messages.push({
-        role: "tool",
-        tool_call_id: toolCall.id,
-        content: JSON.stringify(resultado),
-      });
-    }
-
-    const segundaRespuesta = await clienteGroq.chat.completions.create({
-      model: modeloGroq,
-      messages,
-      temperature: 0.3,
-    });
-
-    const contenidoFinal = segundaRespuesta.choices[0]?.message?.content?.trim();
-    if (!contenidoFinal) {
-      throw new Error("Groq no devolvio contenido despues de usar herramientas.");
-    }
-
-    return {
-      mensaje: ajustarRespuestaAsistente(contenidoFinal),
-      fuente: "groq",
-    };
-  }
-
   return {
-    mensaje: ajustarRespuestaAsistente(
-      opcionInicial.content?.trim() ||
-        "No pude generar una respuesta util en este momento. Intenta reformular tu solicitud.",
-    ),
-    fuente: "groq",
+    mensaje: ajustarRespuestaAsistente(respuesta.texto),
+    fuente: respuesta.fuente,
   };
 }
 
@@ -1166,6 +1152,13 @@ function construirCamposPerfil(body) {
     carrera: "carrera",
     semestre: "semestre",
     plan: "plan",
+    tipoPerfil: "tipo_perfil",
+    objetivoAcademico: "objetivo_academico",
+    preferenciaMicroSesion: "preferencia_micro_sesion",
+    horarioLaboral: "horario_laboral",
+    diasMayorDisponibilidad: "dias_mayor_disponibilidad",
+    tieneTesisProyecto: "tiene_tesis_proyecto",
+    tiempoRealDisponibleDia: "tiempo_real_disponible_dia",
     horasDisponibles: "horas_disponibles",
     metodoEstudio: "metodo_estudio",
     tonoAsistente: "tono_asistente",
@@ -1213,6 +1206,19 @@ function construirCamposPerfil(body) {
   return { campos, valores };
 }
 
+function construirCamposActualizacion(body, mapa) {
+  const valores = [];
+  const sets = [];
+
+  Object.entries(mapa).forEach(([clave, columna]) => {
+    if (body[clave] === undefined) return;
+    valores.push(body[clave]);
+    sets.push(`${columna} = $${valores.length}`);
+  });
+
+  return { sets, valores };
+}
+
 async function obtenerContextoEstudiante(estudianteId) {
   const [usuario, cursos, tareas, examenes, bloquesPlanificador, notificaciones, mensajesChat] =
     await Promise.all([
@@ -1227,6 +1233,13 @@ async function obtenerContextoEstudiante(estudianteId) {
           carrera,
           semestre,
           plan,
+          tipo_perfil as "tipoPerfil",
+          objetivo_academico as "objetivoAcademico",
+          preferencia_micro_sesion as "preferenciaMicroSesion",
+          horario_laboral as "horarioLaboral",
+          dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+          tiene_tesis_proyecto as "tieneTesisProyecto",
+          tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
           horas_disponibles as "horasDisponibles",
           metodo_estudio as "metodoEstudio",
           tono_asistente as "tonoAsistente",
@@ -1345,6 +1358,11 @@ async function obtenerContextoEstudiante(estudianteId) {
       ),
     ]);
 
+  const [proyectosLargos, proyectosGrupales] = await Promise.all([
+    obtenerProyectosLargosEstudiante(estudianteId),
+    obtenerProyectosGrupalesEstudiante(estudianteId),
+  ]);
+
   return {
     usuario: mapearUsuario(usuario.rows[0] ?? null),
     cursos: cursos.rows.map(mapearCurso),
@@ -1353,19 +1371,262 @@ async function obtenerContextoEstudiante(estudianteId) {
     bloquesPlanificador: bloquesPlanificador.rows.map(mapearBloque),
     notificaciones: notificaciones.rows.map(mapearNotificacion),
     mensajesChat: mensajesChat.rows.map(mapearMensajeChat),
+    proyectosLargos,
+    proyectosGrupales,
   };
+}
+
+async function obtenerProyectosLargosEstudiante(estudianteId) {
+  const proyectos = await pool.query(
+    `
+    select
+      id,
+      curso_id as "cursoId",
+      titulo,
+      descripcion,
+      tipo,
+      fecha_limite as "fechaLimite",
+      fase_actual as "faseActual",
+      progreso,
+      ultimo_avance as "ultimoAvance"
+    from proyectos_largos
+    where estudiante_id = $1
+    order by fecha_limite asc
+    `,
+    [estudianteId],
+  );
+  const pasos = await pool.query(
+    `
+    select
+      id,
+      proyecto_id as "proyectoId",
+      titulo,
+      fase,
+      completado
+    from pasos_proyecto_largo
+    where proyecto_id = any($1::uuid[])
+    order by creado_en asc
+    `,
+    [proyectos.rows.map((proyecto) => proyecto.id)],
+  );
+  const pasosPorProyecto = new Map();
+  pasos.rows.forEach((paso) => {
+    const lista = pasosPorProyecto.get(paso.proyectoId) ?? [];
+    lista.push(mapearPasoProyectoLargo(paso));
+    pasosPorProyecto.set(paso.proyectoId, lista);
+  });
+
+  return proyectos.rows.map((proyecto) => mapearProyectoLargo(proyecto, pasosPorProyecto.get(proyecto.id) ?? []));
+}
+
+async function obtenerProyectoLargoPorId(proyectoId) {
+  const proyecto = await pool.query(
+    `
+    select
+      id,
+      estudiante_id as "estudianteId",
+      curso_id as "cursoId",
+      titulo,
+      descripcion,
+      tipo,
+      fecha_limite as "fechaLimite",
+      fase_actual as "faseActual",
+      progreso,
+      ultimo_avance as "ultimoAvance"
+    from proyectos_largos
+    where id = $1
+    limit 1
+    `,
+    [proyectoId],
+  );
+  const row = proyecto.rows[0];
+  if (!row) return null;
+  const pasos = await pool.query(
+    `
+    select id, proyecto_id as "proyectoId", titulo, fase, completado
+    from pasos_proyecto_largo
+    where proyecto_id = $1
+    order by creado_en asc
+    `,
+    [proyectoId],
+  );
+  return mapearProyectoLargo(row, pasos.rows.map(mapearPasoProyectoLargo));
+}
+
+async function obtenerProyectosGrupalesEstudiante(estudianteId) {
+  const proyectos = await pool.query(
+    `
+    select
+      id,
+      curso_id as "cursoId",
+      nombre,
+      descripcion,
+      fecha_limite as "fechaLimite"
+    from proyectos_grupales
+    where estudiante_id = $1
+    order by fecha_limite asc
+    `,
+    [estudianteId],
+  );
+  const ids = proyectos.rows.map((proyecto) => proyecto.id);
+  const integrantes = await pool.query(
+    `
+    select id, proyecto_id as "proyectoId", nombre, rol
+    from integrantes_proyecto
+    where proyecto_id = any($1::uuid[])
+    order by creado_en asc
+    `,
+    [ids],
+  );
+  const tareas = await pool.query(
+    `
+    select
+      id,
+      proyecto_id as "proyectoId",
+      titulo,
+      responsable_id as "responsableId",
+      fecha_limite as "fechaLimite",
+      estado,
+      progreso
+    from tareas_grupales
+    where proyecto_id = any($1::uuid[])
+    order by fecha_limite asc
+    `,
+    [ids],
+  );
+  const integrantesPorProyecto = new Map();
+  integrantes.rows.forEach((integrante) => {
+    const lista = integrantesPorProyecto.get(integrante.proyectoId) ?? [];
+    lista.push(mapearIntegranteProyecto(integrante));
+    integrantesPorProyecto.set(integrante.proyectoId, lista);
+  });
+  const tareasPorProyecto = new Map();
+  tareas.rows.forEach((tarea) => {
+    const lista = tareasPorProyecto.get(tarea.proyectoId) ?? [];
+    lista.push(mapearTareaGrupal(tarea));
+    tareasPorProyecto.set(tarea.proyectoId, lista);
+  });
+
+  return proyectos.rows.map((proyecto) =>
+    mapearProyectoGrupal(
+      proyecto,
+      integrantesPorProyecto.get(proyecto.id) ?? [],
+      tareasPorProyecto.get(proyecto.id) ?? [],
+    ),
+  );
+}
+
+async function obtenerProyectoGrupalPorId(proyectoId) {
+  const proyecto = await pool.query(
+    `
+    select id, estudiante_id as "estudianteId", curso_id as "cursoId", nombre, descripcion, fecha_limite as "fechaLimite"
+    from proyectos_grupales
+    where id = $1
+    limit 1
+    `,
+    [proyectoId],
+  );
+  const row = proyecto.rows[0];
+  if (!row) return null;
+  const [integrantes, tareas] = await Promise.all([
+    pool.query("select id, proyecto_id as \"proyectoId\", nombre, rol from integrantes_proyecto where proyecto_id = $1 order by creado_en asc", [proyectoId]),
+    pool.query(
+      `
+      select id, proyecto_id as "proyectoId", titulo, responsable_id as "responsableId", fecha_limite as "fechaLimite", estado, progreso
+      from tareas_grupales
+      where proyecto_id = $1
+      order by fecha_limite asc
+      `,
+      [proyectoId],
+    ),
+  ]);
+  return mapearProyectoGrupal(row, integrantes.rows.map(mapearIntegranteProyecto), tareas.rows.map(mapearTareaGrupal));
 }
 
 async function asegurarColumnasCompatibilidad() {
   if (!pool) return;
 
   await pool.query("alter table estudiantes add column if not exists google_sub text");
+  await pool.query("alter table estudiantes add column if not exists tipo_perfil text not null default 'universitario'");
+  await pool.query("alter table estudiantes add column if not exists objetivo_academico text not null default 'aprobar_cursos'");
+  await pool.query("alter table estudiantes add column if not exists preferencia_micro_sesion int not null default 20");
+  await pool.query("alter table estudiantes add column if not exists horario_laboral text");
+  await pool.query("alter table estudiantes add column if not exists dias_mayor_disponibilidad text");
+  await pool.query("alter table estudiantes add column if not exists tiene_tesis_proyecto boolean not null default false");
+  await pool.query("alter table estudiantes add column if not exists tiempo_real_disponible_dia numeric(4,1)");
+  await pool.query("alter table estudiantes drop constraint if exists estudiantes_plan_check");
+  await pool.query(
+    "alter table estudiantes add constraint estudiantes_plan_check check (plan in ('gratis', 'estudiante', 'premium', 'premium_plus'))",
+  );
   await pool.query("alter table estudiantes add column if not exists email_verificado boolean not null default false");
   await pool.query("alter table estudiantes add column if not exists email_verificacion_token text");
   await pool.query("alter table estudiantes add column if not exists email_verificacion_expira timestamptz");
   await pool.query(
     "create unique index if not exists estudiantes_google_sub_unique on estudiantes (google_sub) where google_sub is not null",
   );
+  await pool.query(
+    "alter table bloques_planificador drop constraint if exists bloques_planificador_tipo_bloque_check",
+  );
+  await pool.query(
+    "alter table bloques_planificador add constraint bloques_planificador_tipo_bloque_check check (tipo_bloque in ('class', 'study', 'exam', 'break', 'task', 'review', 'work', 'personal', 'commute', 'project_thesis', 'micro_session', 'academic_meeting', 'research'))",
+  );
+  await pool.query(`
+    create table if not exists proyectos_largos (
+      id uuid primary key default gen_random_uuid(),
+      estudiante_id uuid not null references estudiantes(id) on delete cascade,
+      curso_id uuid references cursos(id) on delete set null,
+      titulo text not null,
+      descripcion text default '',
+      tipo text not null default 'proyecto_final',
+      fecha_limite date not null,
+      fase_actual text not null default 'investigacion',
+      progreso int not null default 0,
+      ultimo_avance date default current_date,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists pasos_proyecto_largo (
+      id uuid primary key default gen_random_uuid(),
+      proyecto_id uuid not null references proyectos_largos(id) on delete cascade,
+      titulo text not null,
+      fase text not null default 'investigacion',
+      completado boolean not null default false,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists proyectos_grupales (
+      id uuid primary key default gen_random_uuid(),
+      estudiante_id uuid not null references estudiantes(id) on delete cascade,
+      curso_id uuid references cursos(id) on delete set null,
+      nombre text not null,
+      descripcion text default '',
+      fecha_limite date not null,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists integrantes_proyecto (
+      id uuid primary key default gen_random_uuid(),
+      proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
+      nombre text not null,
+      rol text default 'Integrante',
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists tareas_grupales (
+      id uuid primary key default gen_random_uuid(),
+      proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
+      titulo text not null,
+      responsable_id uuid references integrantes_proyecto(id) on delete set null,
+      fecha_limite date not null,
+      estado text not null default 'pendiente',
+      progreso int not null default 0,
+      creado_en timestamptz not null default now()
+    )
+  `);
 }
 
 app.post("/api/auth/login", async (request, response) => {
@@ -1385,6 +1646,13 @@ app.post("/api/auth/login", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -1483,6 +1751,13 @@ app.post("/api/auth/google", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -1569,6 +1844,13 @@ app.post("/api/auth/google", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -1600,7 +1882,17 @@ app.post("/api/auth/google", async (request, response) => {
 app.post("/api/auth/register", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const { nombres, apellidos, correo, contrasena, universidad, carrera, semestre, plan = "gratis" } = request.body;
+  const {
+    nombres,
+    apellidos,
+    correo,
+    contrasena,
+    universidad,
+    carrera,
+    semestre,
+    plan = "gratis",
+    tipoPerfil = "universitario",
+  } = request.body;
 
   try {
     const existeUsuario = await pool.query(
@@ -1625,6 +1917,7 @@ app.post("/api/auth/register", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil,
         horas_disponibles,
         metodo_estudio,
         tono_asistente,
@@ -1640,7 +1933,7 @@ app.post("/api/auth/register", async (request, response) => {
         app_google_calendar,
         app_sugerencias_automaticas
       )
-      values ($1, $2, $3, $4, $5, $6, $7, $8, '4-6', 'pomodoro', 'responsable', '', 4, 8, true, true, true, true, false, false, false, true)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, $9, '4-6', 'pomodoro', 'responsable', '', 4, 8, true, true, true, true, false, false, false, true)
       returning
         id,
         nombres,
@@ -1650,6 +1943,13 @@ app.post("/api/auth/register", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -1666,7 +1966,7 @@ app.post("/api/auth/register", async (request, response) => {
         app_google_calendar as "aplicacionGoogleCalendar",
         app_sugerencias_automaticas as "aplicacionSugerenciasAutomaticas"
       `,
-      [nombres, apellidos, correo, hashContrasena, universidad, carrera, semestre, plan],
+      [nombres, apellidos, correo, hashContrasena, universidad, carrera, semestre, plan, tipoPerfil],
     );
 
     let verificacionCorreoEnviada = false;
@@ -1719,6 +2019,13 @@ app.post("/api/auth/verify-email", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -1884,6 +2191,13 @@ app.patch("/api/perfil/:estudianteId", async (request, response) => {
         carrera,
         semestre,
         plan,
+        tipo_perfil as "tipoPerfil",
+        objetivo_academico as "objetivoAcademico",
+        preferencia_micro_sesion as "preferenciaMicroSesion",
+        horario_laboral as "horarioLaboral",
+        dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+        tiene_tesis_proyecto as "tieneTesisProyecto",
+        tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
         horas_disponibles as "horasDisponibles",
         metodo_estudio as "metodoEstudio",
         tono_asistente as "tonoAsistente",
@@ -2254,6 +2568,280 @@ app.delete("/api/examenes/:examenId", async (request, response) => {
     response.json({ ok: true });
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo eliminar el examen.", error: error.message });
+  }
+});
+
+app.get("/api/proyectos-largos/:estudianteId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    response.json(await obtenerProyectosLargosEstudiante(request.params.estudianteId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudieron obtener los proyectos largos.", error: error.message });
+  }
+});
+
+app.post("/api/proyectos-largos", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { estudianteId, cursoId, titulo, descripcion = "", tipo = "proyecto_final", fechaLimite } = request.body;
+  try {
+    const resultado = await pool.query(
+      `
+      insert into proyectos_largos (estudiante_id, curso_id, titulo, descripcion, tipo, fecha_limite)
+      values ($1, $2, $3, $4, $5, $6)
+      returning id
+      `,
+      [estudianteId, cursoId || null, titulo, descripcion, tipo, fechaLimite],
+    );
+    response.status(201).json(await obtenerProyectoLargoPorId(resultado.rows[0].id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo crear el proyecto largo.", error: error.message });
+  }
+});
+
+app.patch("/api/proyectos-largos/:proyectoId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const campos = construirCamposActualizacion(
+    request.body,
+    {
+      cursoId: "curso_id",
+      titulo: "titulo",
+      descripcion: "descripcion",
+      tipo: "tipo",
+      fechaLimite: "fecha_limite",
+      faseActual: "fase_actual",
+      progreso: "progreso",
+      ultimoAvance: "ultimo_avance",
+    },
+  );
+  if (!campos.sets.length) {
+    response.json(await obtenerProyectoLargoPorId(request.params.proyectoId));
+    return;
+  }
+  try {
+    await pool.query(
+      `update proyectos_largos set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+      [...campos.valores, request.params.proyectoId],
+    );
+    response.json(await obtenerProyectoLargoPorId(request.params.proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar el proyecto largo.", error: error.message });
+  }
+});
+
+app.delete("/api/proyectos-largos/:proyectoId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    await pool.query("delete from proyectos_largos where id = $1", [request.params.proyectoId]);
+    response.json({ ok: true });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo eliminar el proyecto largo.", error: error.message });
+  }
+});
+
+app.post("/api/proyectos-largos/:proyectoId/pasos", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { titulo, fase = "investigacion" } = request.body;
+  try {
+    await pool.query(
+      "insert into pasos_proyecto_largo (proyecto_id, titulo, fase) values ($1, $2, $3)",
+      [request.params.proyectoId, titulo, fase],
+    );
+    response.status(201).json(await obtenerProyectoLargoPorId(request.params.proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo crear el paso del proyecto.", error: error.message });
+  }
+});
+
+app.patch("/api/proyectos-largos/pasos/:pasoId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const campos = construirCamposActualizacion(
+    request.body,
+    { titulo: "titulo", fase: "fase", completado: "completado" },
+  );
+  try {
+    const paso = await pool.query("select proyecto_id from pasos_proyecto_largo where id = $1", [request.params.pasoId]);
+    if (!paso.rows[0]) {
+      response.status(404).json({ mensaje: "Paso no encontrado." });
+      return;
+    }
+    if (campos.sets.length) {
+      await pool.query(
+        `update pasos_proyecto_largo set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+        [...campos.valores, request.params.pasoId],
+      );
+    }
+    response.json(await obtenerProyectoLargoPorId(paso.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar el paso del proyecto.", error: error.message });
+  }
+});
+
+app.get("/api/trabajos-grupales/:estudianteId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    response.json(await obtenerProyectosGrupalesEstudiante(request.params.estudianteId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudieron obtener los trabajos grupales.", error: error.message });
+  }
+});
+
+app.post("/api/trabajos-grupales", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { estudianteId, cursoId, nombre, descripcion = "", fechaLimite } = request.body;
+  try {
+    const resultado = await pool.query(
+      `
+      insert into proyectos_grupales (estudiante_id, curso_id, nombre, descripcion, fecha_limite)
+      values ($1, $2, $3, $4, $5)
+      returning id
+      `,
+      [estudianteId, cursoId || null, nombre, descripcion, fechaLimite],
+    );
+    response.status(201).json(await obtenerProyectoGrupalPorId(resultado.rows[0].id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo crear el trabajo grupal.", error: error.message });
+  }
+});
+
+app.patch("/api/trabajos-grupales/:proyectoId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const campos = construirCamposActualizacion(
+    request.body,
+    { cursoId: "curso_id", nombre: "nombre", descripcion: "descripcion", fechaLimite: "fecha_limite" },
+  );
+  try {
+    if (campos.sets.length) {
+      await pool.query(
+        `update proyectos_grupales set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+        [...campos.valores, request.params.proyectoId],
+      );
+    }
+    response.json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar el trabajo grupal.", error: error.message });
+  }
+});
+
+app.delete("/api/trabajos-grupales/:proyectoId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    await pool.query("delete from proyectos_grupales where id = $1", [request.params.proyectoId]);
+    response.json({ ok: true });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo eliminar el trabajo grupal.", error: error.message });
+  }
+});
+
+app.post("/api/trabajos-grupales/:proyectoId/integrantes", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { nombre, rol = "Integrante" } = request.body;
+  try {
+    await pool.query(
+      "insert into integrantes_proyecto (proyecto_id, nombre, rol) values ($1, $2, $3)",
+      [request.params.proyectoId, nombre, rol],
+    );
+    response.status(201).json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo agregar el integrante.", error: error.message });
+  }
+});
+
+app.post("/api/trabajos-grupales/:proyectoId/tareas", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { titulo, responsableId, fechaLimite } = request.body;
+  try {
+    await pool.query(
+      `
+      insert into tareas_grupales (proyecto_id, titulo, responsable_id, fecha_limite)
+      values ($1, $2, $3, $4)
+      `,
+      [request.params.proyectoId, titulo, responsableId || null, fechaLimite],
+    );
+    response.status(201).json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo crear la tarea grupal.", error: error.message });
+  }
+});
+
+app.patch("/api/trabajos-grupales/tareas/:tareaId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const campos = construirCamposActualizacion(
+    request.body,
+    { titulo: "titulo", responsableId: "responsable_id", fechaLimite: "fecha_limite", estado: "estado", progreso: "progreso" },
+  );
+  try {
+    const tarea = await pool.query("select proyecto_id from tareas_grupales where id = $1", [request.params.tareaId]);
+    if (!tarea.rows[0]) {
+      response.status(404).json({ mensaje: "Tarea grupal no encontrada." });
+      return;
+    }
+    if (campos.sets.length) {
+      await pool.query(
+        `update tareas_grupales set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+        [...campos.valores, request.params.tareaId],
+      );
+    }
+    response.json(await obtenerProyectoGrupalPorId(tarea.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar la tarea grupal.", error: error.message });
+  }
+});
+
+app.post("/api/micro-sesiones/:estudianteId/sugerir", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const contexto = await obtenerContextoEstudiante(request.params.estudianteId);
+    const tarea = contexto.tareas.find((item) => item.estado !== "completed");
+    const duracion = contexto.usuario?.preferenciaMicroSesion ?? 20;
+    response.json({
+      duracion,
+      tareaId: tarea?.id,
+      mensaje: tarea
+        ? `Hoy tienes poco tiempo disponible. Te recomendamos una micro-sesion de ${duracion} minutos para avanzar "${tarea.titulo}".`
+        : `Puedes retomar el ritmo con una micro-sesion de ${duracion} minutos.`,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo sugerir la micro-sesion.", error: error.message });
+  }
+});
+
+app.post("/api/micro-sesiones/:estudianteId/agendar", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { duracion = 20, titulo = "Micro-sesion de estudio", tareaId } = request.body;
+  try {
+    const tarea = tareaId
+      ? await pool.query("select curso_id as \"cursoId\" from tareas where id = $1", [tareaId])
+      : { rows: [] };
+    const cursoId = tarea.rows[0]?.cursoId ?? null;
+    const resultado = await pool.query(
+      `
+      insert into bloques_planificador (estudiante_id, curso_id, dia_semana, hora_inicio, horas_duracion, titulo, tipo_bloque, color)
+      values ($1, $2, extract(isodow from current_date)::int - 1, 19, $3, $4, 'micro_session', 'teal')
+      returning id, curso_id as "cursoId", dia_semana as dia, hora_inicio as "horaInicio", horas_duracion as duracion, titulo, color, tipo_bloque as tipo
+      `,
+      [request.params.estudianteId, cursoId, Number(duracion) / 60, titulo],
+    );
+    response.status(201).json({
+      bloque: mapearBloque(resultado.rows[0]),
+      mensaje: `Agendamos una micro-sesion de ${duracion} minutos.`,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo agendar la micro-sesion.", error: error.message });
   }
 });
 

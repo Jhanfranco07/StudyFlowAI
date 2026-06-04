@@ -7,6 +7,7 @@ import {
   useStudyFlow,
   type BloquePlanificador,
 } from "../data/studyflow-store";
+import { ETIQUETAS_BLOQUE, obtenerTiposBloqueDisponibles } from "../data/plan-rules";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -39,7 +40,7 @@ function bloqueSeSolapa(
   });
 }
 
-type TipoVisualBloque = "class" | "task" | "review" | "exam" | "break" | "study";
+type TipoVisualBloque = BloquePlanificador["tipo"];
 
 type MetaBloqueVisual = {
   tipoVisual: TipoVisualBloque;
@@ -112,6 +113,28 @@ function obtenerMetaBloqueVisual(bloque: BloquePlanificador): MetaBloqueVisual {
       detalle: "Recuperacion",
       titulo,
       Icono: Coffee,
+    };
+  }
+
+  if (bloque.tipo === "work" || bloque.tipo === "personal" || bloque.tipo === "commute") {
+    return {
+      tipoVisual: bloque.tipo,
+      etiqueta: ETIQUETAS_BLOQUE[bloque.tipo],
+      descripcion: bloque.tipo === "work" ? "Carga laboral" : "Tiempo no academico",
+      detalle: "Protegido para no solapar estudio",
+      titulo,
+      Icono: bloque.tipo === "commute" ? Move : Clock,
+    };
+  }
+
+  if (bloque.tipo === "project_thesis" || bloque.tipo === "micro_session" || bloque.tipo === "academic_meeting" || bloque.tipo === "research") {
+    return {
+      tipoVisual: bloque.tipo,
+      etiqueta: ETIQUETAS_BLOQUE[bloque.tipo],
+      descripcion: "Productividad avanzada",
+      detalle: bloque.tipo === "micro_session" ? "Bloque corto" : "Bloque enfocado",
+      titulo,
+      Icono: Sparkles,
     };
   }
 
@@ -255,6 +278,7 @@ export default function Planner() {
   const [bloqueEnEdicion, setBloqueEnEdicion] = useState<BloquePlanificador | null>(null);
   const [bloqueRecienteId, setBloqueRecienteId] = useState<string | null>(null);
   const [mensajeEdicion, setMensajeEdicion] = useState("");
+  const tiposBloqueDisponibles = obtenerTiposBloqueDisponibles(usuarioActual);
 
   const examenProximo = examenes.slice().sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
   const cursoProximo = cursos.find((curso) => curso.id === examenProximo?.cursoId);
@@ -546,6 +570,7 @@ export default function Planner() {
           {bloqueEnEdicion && (
             <EditorBloque
               bloque={bloqueEnEdicion}
+              tiposBloqueDisponibles={tiposBloqueDisponibles}
               onGuardar={(cambios) => {
                 const siguienteDia = cambios.dia ?? bloqueEnEdicion.dia;
                 const siguienteHora = cambios.horaInicio ?? bloqueEnEdicion.horaInicio;
@@ -585,10 +610,12 @@ export default function Planner() {
 
 function EditorBloque({
   bloque,
+  tiposBloqueDisponibles,
   onGuardar,
   onEliminar,
 }: {
   bloque: BloquePlanificador;
+  tiposBloqueDisponibles: BloquePlanificador["tipo"][];
   onGuardar: (cambios: Partial<BloquePlanificador>) => void;
   onEliminar: () => void;
 }) {
@@ -661,10 +688,11 @@ function EditorBloque({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="class">Clase</SelectItem>
-              <SelectItem value="study">Estudio</SelectItem>
-              <SelectItem value="exam">Examen</SelectItem>
-              <SelectItem value="break">Descanso</SelectItem>
+              {tiposBloqueDisponibles.map((tipo) => (
+                <SelectItem key={tipo} value={tipo}>
+                  {ETIQUETAS_BLOQUE[tipo]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

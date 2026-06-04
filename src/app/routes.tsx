@@ -90,6 +90,14 @@ export const router = createBrowserRouter([
         lazy: () => cargarRutaDiferida(() => import("./pages/Tasks")),
       },
       {
+        path: "projects",
+        lazy: () => cargarRutaDiferida(() => import("./pages/Projects")),
+      },
+      {
+        path: "team-projects",
+        lazy: () => cargarRutaDiferida(() => import("./pages/TeamProjects")),
+      },
+      {
         path: "exams",
         lazy: () => cargarRutaDiferida(() => import("./pages/Exams")),
       },

@@ -69,7 +69,20 @@ export type UsuarioApi = {
   universidad: string;
   carrera: string;
   semestre: string;
-  plan: "gratis" | "estudiante" | "premium";
+  plan: "gratis" | "estudiante" | "premium" | "premium_plus";
+  tipoPerfil: "universitario" | "instituto" | "posgrado" | "profesional_estudia" | "diplomado_maestria";
+  objetivoAcademico:
+    | "aprobar_cursos"
+    | "preparar_examenes"
+    | "avanzar_tesis"
+    | "terminar_proyecto_final"
+    | "organizar_trabajo_estudio"
+    | "mejorar_productividad";
+  preferenciaMicroSesion: 15 | 20 | 30 | 45;
+  horarioLaboral: string | null;
+  diasMayorDisponibilidad: string | null;
+  tieneTesisProyecto: boolean;
+  tiempoRealDisponibleDia: number | null;
   emailVerificado: boolean;
   horasDisponibles: string | null;
   metodoEstudio: string | null;
@@ -131,7 +144,20 @@ export type BloquePlanificadorApi = {
   titulo: string;
   cursoId?: string;
   color: string;
-  tipo: "class" | "study" | "exam" | "break";
+  tipo:
+    | "class"
+    | "study"
+    | "exam"
+    | "break"
+    | "task"
+    | "review"
+    | "work"
+    | "personal"
+    | "commute"
+    | "project_thesis"
+    | "micro_session"
+    | "academic_meeting"
+    | "research";
 };
 
 export type NotificacionApi = {
@@ -153,7 +179,7 @@ export type MensajeChatApi = {
 
 export type RespuestaChatApi = {
   mensajes: MensajeChatApi[];
-  fuente: "groq" | "sistema";
+  fuente: "openai" | "groq" | "sistema";
 };
 
 export type ContextoApi = {
@@ -164,6 +190,45 @@ export type ContextoApi = {
   bloquesPlanificador: BloquePlanificadorApi[];
   notificaciones: NotificacionApi[];
   mensajesChat: MensajeChatApi[];
+  proyectosLargos: ProyectoLargoApi[];
+  proyectosGrupales: ProyectoGrupalApi[];
+};
+
+export type ProyectoLargoApi = {
+  id: string;
+  cursoId?: string;
+  titulo: string;
+  descripcion: string;
+  tipo: "tesis" | "proyecto_final" | "investigacion" | "articulo" | "exposicion_grande" | "caso_negocio" | "otro";
+  fechaLimite: string;
+  faseActual: "investigacion" | "estructura" | "redaccion" | "revision" | "entrega";
+  progreso: number;
+  ultimoAvance: string;
+  pasos: Array<{
+    id: string;
+    proyectoId: string;
+    titulo: string;
+    fase: "investigacion" | "estructura" | "redaccion" | "revision" | "entrega";
+    completado: boolean;
+  }>;
+};
+
+export type ProyectoGrupalApi = {
+  id: string;
+  cursoId?: string;
+  nombre: string;
+  descripcion: string;
+  fechaLimite: string;
+  integrantes: Array<{ id: string; proyectoId: string; nombre: string; rol: string }>;
+  tareas: Array<{
+    id: string;
+    proyectoId: string;
+    titulo: string;
+    responsableId?: string;
+    fechaLimite: string;
+    estado: "pendiente" | "en_proceso" | "en_revision" | "finalizado";
+    progreso: number;
+  }>;
 };
 
 export type RespuestaInicioSesionApi = {
@@ -194,7 +259,8 @@ export const api = {
     universidad: string;
     carrera: string;
     semestre: string;
-    plan: "gratis" | "estudiante" | "premium";
+    plan: "gratis" | "estudiante" | "premium" | "premium_plus";
+    tipoPerfil?: UsuarioApi["tipoPerfil"];
   }) {
     return request<{ usuario: UsuarioApi; verificacionCorreoEnviada?: boolean }>("/api/auth/register", {
       method: "POST",
@@ -379,6 +445,106 @@ export const api = {
   limpiarMensajesAsistente(estudianteId: string) {
     return request<{ ok: true }>(`/api/chat/${estudianteId}`, {
       method: "DELETE",
+    });
+  },
+  obtenerProyectosLargos(estudianteId: string) {
+    return request<ProyectoLargoApi[]>(`/api/proyectos-largos/${estudianteId}`);
+  },
+  crearProyectoLargo(payload: {
+    estudianteId: string;
+    cursoId?: string;
+    titulo: string;
+    descripcion: string;
+    tipo: ProyectoLargoApi["tipo"];
+    fechaLimite: string;
+  }) {
+    return request<ProyectoLargoApi>("/api/proyectos-largos", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarProyectoLargo(proyectoId: string, payload: Partial<ProyectoLargoApi>) {
+    return request<ProyectoLargoApi>(`/api/proyectos-largos/${proyectoId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  eliminarProyectoLargo(proyectoId: string) {
+    return request<{ ok: true }>(`/api/proyectos-largos/${proyectoId}`, {
+      method: "DELETE",
+    });
+  },
+  crearPasoProyectoLargo(proyectoId: string, payload: { titulo: string; fase: ProyectoLargoApi["faseActual"] }) {
+    return request<ProyectoLargoApi>(`/api/proyectos-largos/${proyectoId}/pasos`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarPasoProyectoLargo(pasoId: string, payload: { completado?: boolean; titulo?: string; fase?: ProyectoLargoApi["faseActual"] }) {
+    return request<ProyectoLargoApi>(`/api/proyectos-largos/pasos/${pasoId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  obtenerTrabajosGrupales(estudianteId: string) {
+    return request<ProyectoGrupalApi[]>(`/api/trabajos-grupales/${estudianteId}`);
+  },
+  crearTrabajoGrupal(payload: {
+    estudianteId: string;
+    cursoId?: string;
+    nombre: string;
+    descripcion: string;
+    fechaLimite: string;
+  }) {
+    return request<ProyectoGrupalApi>("/api/trabajos-grupales", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarTrabajoGrupal(proyectoId: string, payload: Partial<ProyectoGrupalApi>) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  eliminarTrabajoGrupal(proyectoId: string) {
+    return request<{ ok: true }>(`/api/trabajos-grupales/${proyectoId}`, {
+      method: "DELETE",
+    });
+  },
+  agregarIntegranteTrabajoGrupal(proyectoId: string, payload: { nombre: string; rol: string }) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}/integrantes`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  crearTareaTrabajoGrupal(
+    proyectoId: string,
+    payload: { titulo: string; responsableId?: string; fechaLimite: string },
+  ) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}/tareas`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarTareaTrabajoGrupal(
+    tareaId: string,
+    payload: { estado?: ProyectoGrupalApi["tareas"][number]["estado"]; progreso?: number; responsableId?: string },
+  ) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/tareas/${tareaId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  sugerirMicroSesion(estudianteId: string) {
+    return request<{ duracion: number; mensaje: string; tareaId?: string }>(`/api/micro-sesiones/${estudianteId}/sugerir`, {
+      method: "POST",
+    });
+  },
+  agendarMicroSesion(estudianteId: string, payload: { duracion: number; titulo?: string; tareaId?: string }) {
+    return request<{ bloque: BloquePlanificadorApi; mensaje: string }>(`/api/micro-sesiones/${estudianteId}/agendar`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
   },
 };

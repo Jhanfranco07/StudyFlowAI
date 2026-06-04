@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { GraduationCap, School } from "lucide-react";
-import { useStudyFlow } from "../data/studyflow-store";
+import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
+import { DURACIONES_MICRO_SESION, OBJETIVOS_ACADEMICOS, TIPOS_PERFIL } from "../data/plan-rules";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -29,6 +30,13 @@ export default function CompleteProfilePage() {
     university: limpiarCampoInicial(usuarioActual?.universidad ?? ""),
     career: limpiarCampoInicial(usuarioActual?.carrera ?? ""),
     semester: limpiarCampoInicial(usuarioActual?.semestre ?? ""),
+    tipoPerfil: usuarioActual?.tipoPerfil ?? "universitario",
+    objetivoAcademico: usuarioActual?.objetivoAcademico ?? "aprobar_cursos",
+    horarioLaboral: usuarioActual?.horarioLaboral ?? "",
+    diasMayorDisponibilidad: usuarioActual?.diasMayorDisponibilidad ?? "",
+    tieneTesisProyecto: usuarioActual?.tieneTesisProyecto ?? false,
+    tiempoRealDisponibleDia: usuarioActual?.tiempoRealDisponibleDia ?? 1,
+    preferenciaMicroSesion: usuarioActual?.preferenciaMicroSesion ?? 20,
   });
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
@@ -38,6 +46,13 @@ export default function CompleteProfilePage() {
       university: limpiarCampoInicial(usuarioActual?.universidad ?? ""),
       career: limpiarCampoInicial(usuarioActual?.carrera ?? ""),
       semester: limpiarCampoInicial(usuarioActual?.semestre ?? ""),
+      tipoPerfil: usuarioActual?.tipoPerfil ?? "universitario",
+      objetivoAcademico: usuarioActual?.objetivoAcademico ?? "aprobar_cursos",
+      horarioLaboral: usuarioActual?.horarioLaboral ?? "",
+      diasMayorDisponibilidad: usuarioActual?.diasMayorDisponibilidad ?? "",
+      tieneTesisProyecto: usuarioActual?.tieneTesisProyecto ?? false,
+      tiempoRealDisponibleDia: usuarioActual?.tiempoRealDisponibleDia ?? 1,
+      preferenciaMicroSesion: usuarioActual?.preferenciaMicroSesion ?? 20,
     });
   }, [usuarioActual]);
 
@@ -59,6 +74,13 @@ export default function CompleteProfilePage() {
         universidad: formData.university,
         carrera: formData.career,
         semestre: formData.semester,
+        tipoPerfil: formData.tipoPerfil,
+        objetivoAcademico: formData.objetivoAcademico,
+        horarioLaboral: formData.horarioLaboral,
+        diasMayorDisponibilidad: formData.diasMayorDisponibilidad,
+        tieneTesisProyecto: formData.tieneTesisProyecto,
+        tiempoRealDisponibleDia: formData.tiempoRealDisponibleDia,
+        preferenciaMicroSesion: formData.preferenciaMicroSesion,
       });
 
       if (!success) {
@@ -122,6 +144,25 @@ export default function CompleteProfilePage() {
             </div>
 
             <div>
+              <Label>Tipo de perfil academico</Label>
+              <Select
+                value={formData.tipoPerfil}
+                onValueChange={(tipoPerfil: PerfilUsuario["tipoPerfil"]) => setFormData({ ...formData, tipoPerfil })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona tu perfil" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(TIPOS_PERFIL).map(([valor, etiqueta]) => (
+                    <SelectItem key={valor} value={valor}>
+                      {etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <Label>Ciclo o semestre</Label>
               <Select
                 value={formData.semester}
@@ -139,6 +180,71 @@ export default function CompleteProfilePage() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Label>Objetivo academico principal</Label>
+              <Select
+                value={formData.objetivoAcademico}
+                onValueChange={(objetivoAcademico: PerfilUsuario["objetivoAcademico"]) =>
+                  setFormData({ ...formData, objetivoAcademico })
+                }
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona tu objetivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OBJETIVOS_ACADEMICOS.map((objetivo) => (
+                    <SelectItem key={objetivo.valor} value={objetivo.valor}>
+                      {objetivo.etiqueta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {["posgrado", "profesional_estudia", "diplomado_maestria"].includes(formData.tipoPerfil) ? (
+              <>
+                <div>
+                  <Label>Horario laboral aproximado</Label>
+                  <Input
+                    value={formData.horarioLaboral}
+                    onChange={(event) => setFormData({ ...formData, horarioLaboral: event.target.value })}
+                    placeholder="Lun-vie 9:00 a 18:00"
+                  />
+                </div>
+                <div>
+                  <Label>Dias con mayor disponibilidad</Label>
+                  <Input
+                    value={formData.diasMayorDisponibilidad}
+                    onChange={(event) => setFormData({ ...formData, diasMayorDisponibilidad: event.target.value })}
+                    placeholder="Martes noche, sabado manana"
+                  />
+                </div>
+                <div>
+                  <Label>Micro-sesion preferida</Label>
+                  <Select
+                    value={`${formData.preferenciaMicroSesion}`}
+                    onValueChange={(preferenciaMicroSesion) =>
+                      setFormData({
+                        ...formData,
+                        preferenciaMicroSesion: Number(preferenciaMicroSesion) as PerfilUsuario["preferenciaMicroSesion"],
+                      })
+                    }
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DURACIONES_MICRO_SESION.map((duracion) => (
+                        <SelectItem key={duracion} value={`${duracion}`}>
+                          {duracion} minutos
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            ) : null}
 
             {error ? (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">

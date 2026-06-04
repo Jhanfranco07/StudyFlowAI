@@ -13,6 +13,7 @@ import {
   Calendar,
   CheckSquare,
   ClipboardList,
+  BriefcaseBusiness,
   Clock,
   ShieldAlert,
   Sparkles,
@@ -32,13 +33,23 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
+import { canUseMicroSessions, isPostgradProfile } from "../data/plan-rules";
 
 const etiquetasDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const indiceHoy = (new Date().getDay() + 6) % 7;
 
 export default function Dashboard() {
-  const { usuarioActual, cursos, examenes, tareas, bloquesPlanificador, alternarTareaCompletada } =
-    useStudyFlow();
+  const {
+    usuarioActual,
+    cursos,
+    examenes,
+    tareas,
+    bloquesPlanificador,
+    proyectosLargos,
+    alternarTareaCompletada,
+    sugerirMicroSesion,
+    agendarMicroSesion,
+  } = useStudyFlow();
 
   const tareasActivas = tareas.filter(esTareaActiva);
   const tareasPendientesVigentes = tareas.filter(esTareaPendienteVigente);
@@ -81,6 +92,13 @@ export default function Dashboard() {
       ? `${cursosEnRiesgo.length} curso${cursosEnRiesgo.length === 1 ? "" : "s"} necesitan atencion prioritaria.`
       : "Tu carga académica se ve estable por ahora.";
 
+  const perfilTrabajoEstudio = isPostgradProfile(usuarioActual);
+  const microSesion = sugerirMicroSesion();
+  const proyectoEnRiesgo = proyectosLargos.find((proyecto) => proyecto.progreso < 50);
+  const horasTrabajoSemana = bloquesPlanificador
+    .filter((bloque) => bloque.tipo === "work")
+    .reduce((sum, bloque) => sum + bloque.duracion, 0);
+
   return (
     <div className="space-y-8">
       <div>
@@ -98,6 +116,44 @@ export default function Dashboard() {
         <StatCard icon={Clock} value={`${horasSugeridas}h`} label="Horas de estudio sugeridas" tone="purple" />
         <StatCard icon={TrendingUp} value={`${progresoSemanal}%`} label="Avance semanal" tone="green" />
       </div>
+
+      {perfilTrabajoEstudio ? (
+        <Card className="border-none bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 text-white shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BriefcaseBusiness className="h-5 w-5 text-cyan-200" />
+              Resumen trabajo + estudio
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl bg-white/10 p-4">
+              <p className="text-sm text-white/70">Tiempo disponible esta semana</p>
+              <p className="mt-2 text-2xl font-bold">{Math.max(1, objetivoSemanal - totalHoras)}h</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4">
+              <p className="text-sm text-white/70">Carga laboral registrada</p>
+              <p className="mt-2 text-2xl font-bold">{horasTrabajoSemana}h</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4">
+              <p className="text-sm text-white/70">Micro-sesion sugerida</p>
+              <p className="mt-2 text-2xl font-bold">{microSesion.duracion} min</p>
+              <Button size="sm" variant="secondary" className="mt-3" onClick={() => agendarMicroSesion()} disabled={!canUseMicroSessions(usuarioActual)}>
+                Agendar
+              </Button>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4">
+              <p className="text-sm text-white/70">Proyecto o tesis en riesgo</p>
+              <p className="mt-2 text-lg font-bold">{proyectoEnRiesgo?.titulo ?? "Sin riesgo alto"}</p>
+              <p className="mt-2 text-xs text-white/65">
+                {proyectoEnRiesgo ? "Agenda un paso pequeno para retomar ritmo." : "Buen momento para sostener avances cortos."}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4 md:col-span-2 xl:col-span-4">
+              <p className="text-sm text-white/80">{microSesion.mensaje}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
         <Card className="border-none shadow-lg">

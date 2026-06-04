@@ -15,26 +15,35 @@ import {
   parseISO,
   startOfToday,
 } from "date-fns";
-import { api, type ContextoApi, type TareaApi, type UsuarioApi } from "./api";
+import { api, type ContextoApi, type ProyectoGrupalApi, type ProyectoLargoApi, type TareaApi, type UsuarioApi } from "./api";
 import { construirBloquesClaseDesdeCurso } from "./course-schedule";
+import { normalizarPlan, normalizarTipoPerfil } from "./plan-rules";
 import type {
   AlcancePlanificacion,
   AlertaInteligente,
   BloquePlanificador,
   Curso,
   DisponibilidadDia,
+  EstadoTareaGrupal,
   EstadoTarea,
   Examen,
   FranjaDisponibilidad,
+  FaseProyectoLargo,
   JornadaPlanificacion,
   MensajeChat,
   ModoPlanificacionTodo,
   NotificacionItem,
   PerfilUsuario,
+  PreferenciaMicroSesion,
   Prioridad,
+  ProyectoGrupal,
+  ProyectoLargo,
   ResultadoPlanificacionInteligente,
   Subtarea,
   Tarea,
+  TipoBloquePlanificador,
+  TipoPerfilUsuario,
+  TipoProyectoLargo,
 } from "./studyflow-types";
 
 export type {
@@ -43,18 +52,26 @@ export type {
   BloquePlanificador,
   Curso,
   DisponibilidadDia,
+  EstadoTareaGrupal,
   EstadoTarea,
   Examen,
   FranjaDisponibilidad,
+  FaseProyectoLargo,
   JornadaPlanificacion,
   MensajeChat,
   ModoPlanificacionTodo,
   NotificacionItem,
   PerfilUsuario,
+  PreferenciaMicroSesion,
   Prioridad,
+  ProyectoGrupal,
+  ProyectoLargo,
   ResultadoPlanificacionInteligente,
   Subtarea,
   Tarea,
+  TipoBloquePlanificador,
+  TipoPerfilUsuario,
+  TipoProyectoLargo,
 } from "./studyflow-types";
 
 type EstadoStudyFlow = {
@@ -65,7 +82,9 @@ type EstadoStudyFlow = {
   bloquesPlanificador: BloquePlanificador[];
   notificaciones: NotificacionItem[];
   mensajesChat: MensajeChat[];
-  fuenteAsistente: "groq" | "sistema" | "error" | null;
+  proyectosLargos: ProyectoLargo[];
+  proyectosGrupales: ProyectoGrupal[];
+  fuenteAsistente: "openai" | "groq" | "sistema" | "error" | null;
 };
 
 type RespuestaMovimientoPlanificador = {
@@ -80,7 +99,8 @@ type DatosRegistro = {
   university: string;
   career: string;
   semester: string;
-  plan: "gratis" | "estudiante" | "premium";
+  plan: "gratis" | "estudiante" | "premium" | "premium_plus";
+  tipoPerfil?: PerfilUsuario["tipoPerfil"];
 };
 
 type ResultadoInicioSesionGoogle = "ok" | "completar-perfil" | "error";
@@ -98,6 +118,13 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
     universidad: string;
     carrera: string;
     semestre: string;
+    tipoPerfil?: PerfilUsuario["tipoPerfil"];
+    objetivoAcademico?: PerfilUsuario["objetivoAcademico"];
+    horarioLaboral?: string;
+    diasMayorDisponibilidad?: string;
+    tieneTesisProyecto?: boolean;
+    tiempoRealDisponibleDia?: number;
+    preferenciaMicroSesion?: PreferenciaMicroSesion;
   }) => Promise<boolean>;
   agregarTarea: (
     tarea: Omit<Tarea, "id" | "estado" | "progreso" | "subtareas"> & {
@@ -126,6 +153,19 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
   agregarExamen: (examen: Omit<Examen, "id">) => void;
   actualizarExamen: (examenId: string, cambios: Partial<Examen>) => void;
   eliminarExamen: (examenId: string) => void;
+  agregarProyectoLargo: (proyecto: Omit<ProyectoLargo, "id" | "progreso" | "ultimoAvance" | "pasos" | "faseActual"> & { faseActual?: ProyectoLargo["faseActual"] }) => void;
+  actualizarProyectoLargo: (proyectoId: string, cambios: Partial<ProyectoLargo>) => void;
+  eliminarProyectoLargo: (proyectoId: string) => void;
+  agregarPasoProyectoLargo: (proyectoId: string, titulo: string, fase?: ProyectoLargo["faseActual"]) => void;
+  alternarPasoProyectoLargo: (pasoId: string, completado: boolean) => void;
+  agregarProyectoGrupal: (proyecto: Omit<ProyectoGrupal, "id" | "integrantes" | "tareas">) => void;
+  actualizarProyectoGrupal: (proyectoId: string, cambios: Partial<ProyectoGrupal>) => void;
+  eliminarProyectoGrupal: (proyectoId: string) => void;
+  agregarIntegranteProyectoGrupal: (proyectoId: string, nombre: string, rol?: string) => void;
+  agregarTareaProyectoGrupal: (proyectoId: string, titulo: string, fechaLimite: string, responsableId?: string) => void;
+  actualizarTareaProyectoGrupal: (tareaId: string, cambios: Partial<ProyectoGrupal["tareas"][number]>) => void;
+  sugerirMicroSesion: () => { duracion: number; mensaje: string; tareaId?: string };
+  agendarMicroSesion: (duracion?: number, titulo?: string) => { ok: boolean; mensaje: string };
   marcarNotificacionLeida: (notificacionId: string) => void;
   marcarTodasNotificacionesLeidas: () => void;
   limpiarNotificacionesLeidas: () => void;
@@ -322,6 +362,31 @@ function normalizarTareaApi(tarea: TareaApi, subtareas?: Subtarea[] | null): Tar
     prioridad: tarea.prioridad,
     estado: tarea.estado,
     subtareas: normalizarSubtareas(subtareas),
+  };
+}
+
+function normalizarProyectoLargoApi(proyecto: ProyectoLargoApi): ProyectoLargo {
+  return {
+    ...proyecto,
+    pasos: proyecto.pasos ?? [],
+  };
+}
+
+function normalizarProyectoGrupalApi(proyecto: ProyectoGrupalApi): ProyectoGrupal {
+  return {
+    ...proyecto,
+    integrantes: proyecto.integrantes ?? [],
+    tareas: proyecto.tareas ?? [],
+  };
+}
+
+function recalcularProyectoLargo(proyecto: ProyectoLargo): ProyectoLargo {
+  const total = proyecto.pasos.length;
+  const completados = proyecto.pasos.filter((paso) => paso.completado).length;
+  return {
+    ...proyecto,
+    progreso: total ? Math.round((completados / total) * 100) : proyecto.progreso,
+    ultimoAvance: completados > 0 ? new Date().toISOString() : proyecto.ultimoAvance,
   };
 }
 
@@ -1143,6 +1208,13 @@ function crearPerfilBase(): PerfilUsuario {
     carrera: "Ingenieria de Sistemas",
     semestre: "5",
     plan: "premium",
+    tipoPerfil: "universitario",
+    objetivoAcademico: "aprobar_cursos",
+    preferenciaMicroSesion: 20,
+    horarioLaboral: "",
+    diasMayorDisponibilidad: "Lunes a jueves por la tarde",
+    tieneTesisProyecto: false,
+    tiempoRealDisponibleDia: 2,
     emailVerificado: true,
     horasDisponibles: "4-6",
     metodoEstudio: "pomodoro",
@@ -1175,6 +1247,14 @@ function normalizarUsuarioApi(
   return {
     ...base,
     ...usuario,
+    plan: normalizarPlan(usuario.plan),
+    tipoPerfil: normalizarTipoPerfil(usuario.tipoPerfil),
+    objetivoAcademico: usuario.objetivoAcademico ?? base.objetivoAcademico,
+    preferenciaMicroSesion: usuario.preferenciaMicroSesion ?? base.preferenciaMicroSesion,
+    horarioLaboral: usuario.horarioLaboral ?? base.horarioLaboral,
+    diasMayorDisponibilidad: usuario.diasMayorDisponibilidad ?? base.diasMayorDisponibilidad,
+    tieneTesisProyecto: usuario.tieneTesisProyecto ?? base.tieneTesisProyecto,
+    tiempoRealDisponibleDia: usuario.tiempoRealDisponibleDia ?? base.tiempoRealDisponibleDia,
     emailVerificado: usuario.emailVerificado ?? base.emailVerificado,
     horasDisponibles: usuario.horasDisponibles ?? base.horasDisponibles,
     metodoEstudio: usuario.metodoEstudio ?? base.metodoEstudio,
@@ -1204,10 +1284,37 @@ function normalizarUsuarioPersistido(usuario: unknown): PerfilUsuario | null {
     universidad: typeof candidato.universidad === "string" ? candidato.universidad : base.universidad,
     carrera: typeof candidato.carrera === "string" ? candidato.carrera : base.carrera,
     semestre: typeof candidato.semestre === "string" ? candidato.semestre : base.semestre,
-    plan:
-      candidato.plan === "gratis" || candidato.plan === "estudiante" || candidato.plan === "premium"
-        ? candidato.plan
-        : base.plan,
+    plan: normalizarPlan(candidato.plan),
+    tipoPerfil: normalizarTipoPerfil(candidato.tipoPerfil),
+    objetivoAcademico:
+      candidato.objetivoAcademico === "aprobar_cursos" ||
+      candidato.objetivoAcademico === "preparar_examenes" ||
+      candidato.objetivoAcademico === "avanzar_tesis" ||
+      candidato.objetivoAcademico === "terminar_proyecto_final" ||
+      candidato.objetivoAcademico === "organizar_trabajo_estudio" ||
+      candidato.objetivoAcademico === "mejorar_productividad"
+        ? candidato.objetivoAcademico
+        : base.objetivoAcademico,
+    preferenciaMicroSesion:
+      candidato.preferenciaMicroSesion === 15 ||
+      candidato.preferenciaMicroSesion === 20 ||
+      candidato.preferenciaMicroSesion === 30 ||
+      candidato.preferenciaMicroSesion === 45
+        ? candidato.preferenciaMicroSesion
+        : base.preferenciaMicroSesion,
+    horarioLaboral: typeof candidato.horarioLaboral === "string" ? candidato.horarioLaboral : base.horarioLaboral,
+    diasMayorDisponibilidad:
+      typeof candidato.diasMayorDisponibilidad === "string"
+        ? candidato.diasMayorDisponibilidad
+        : base.diasMayorDisponibilidad,
+    tieneTesisProyecto:
+      typeof candidato.tieneTesisProyecto === "boolean"
+        ? candidato.tieneTesisProyecto
+        : base.tieneTesisProyecto,
+    tiempoRealDisponibleDia:
+      typeof candidato.tiempoRealDisponibleDia === "number"
+        ? candidato.tiempoRealDisponibleDia
+        : base.tiempoRealDisponibleDia,
     emailVerificado:
       typeof candidato.emailVerificado === "boolean"
         ? candidato.emailVerificado
@@ -1463,6 +1570,46 @@ function crearEstadoInicial(): EstadoStudyFlow {
     },
   ];
 
+  const proyectosLargos: ProyectoLargo[] = [
+    {
+      id: "long-1",
+      cursoId: "course-soft",
+      titulo: "Proyecto final de software",
+      descripcion: "Caso integrador con backlog, prototipo y validacion.",
+      tipo: "proyecto_final",
+      fechaLimite: format(addDays(hoy, 18), "yyyy-MM-dd"),
+      faseActual: "estructura",
+      progreso: 40,
+      ultimoAvance: format(addDays(hoy, -4), "yyyy-MM-dd"),
+      pasos: [
+        { id: "long-1-step-1", proyectoId: "long-1", titulo: "Definir alcance y entregables", fase: "investigacion", completado: true },
+        { id: "long-1-step-2", proyectoId: "long-1", titulo: "Armar estructura del informe", fase: "estructura", completado: true },
+        { id: "long-1-step-3", proyectoId: "long-1", titulo: "Redactar criterios de aceptacion", fase: "redaccion", completado: false },
+        { id: "long-1-step-4", proyectoId: "long-1", titulo: "Revisar conclusiones", fase: "revision", completado: false },
+      ],
+    },
+  ];
+
+  const proyectosGrupales: ProyectoGrupal[] = [
+    {
+      id: "team-1",
+      cursoId: "course-soft",
+      nombre: "Exposicion de metodologias agiles",
+      descripcion: "Trabajo grupal con guion, diapositivas y practica.",
+      fechaLimite: format(addDays(hoy, 9), "yyyy-MM-dd"),
+      integrantes: [
+        { id: "member-1", proyectoId: "team-1", nombre: "Jhan", rol: "Coordinador" },
+        { id: "member-2", proyectoId: "team-1", nombre: "Lucia", rol: "Diapositivas" },
+        { id: "member-3", proyectoId: "team-1", nombre: "Diego", rol: "Investigacion" },
+      ],
+      tareas: [
+        { id: "team-task-1", proyectoId: "team-1", titulo: "Investigar Scrum y Kanban", responsableId: "member-3", fechaLimite: format(addDays(hoy, 3), "yyyy-MM-dd"), estado: "en_proceso", progreso: 55 },
+        { id: "team-task-2", proyectoId: "team-1", titulo: "Armar diapositivas", responsableId: "member-2", fechaLimite: format(addDays(hoy, 5), "yyyy-MM-dd"), estado: "pendiente", progreso: 10 },
+        { id: "team-task-3", proyectoId: "team-1", titulo: "Practicar exposicion", responsableId: "member-1", fechaLimite: format(addDays(hoy, 8), "yyyy-MM-dd"), estado: "pendiente", progreso: 0 },
+      ],
+    },
+  ];
+
   return {
     usuarioActual: usuario,
     cursos,
@@ -1471,6 +1618,8 @@ function crearEstadoInicial(): EstadoStudyFlow {
     bloquesPlanificador: sincronizarBloquesClaseConCursos(cursos, bloquesPlanificador),
     notificaciones,
     mensajesChat,
+    proyectosLargos,
+    proyectosGrupales,
     fuenteAsistente: null,
   };
 }
@@ -1570,6 +1719,17 @@ function integrarContexto(estadoActual: EstadoStudyFlow, contexto: ContextoApi):
           carrera: contexto.usuario?.carrera ?? estadoActual.usuarioActual.carrera,
           semestre: contexto.usuario?.semestre ?? estadoActual.usuarioActual.semestre,
           plan: contexto.usuario?.plan ?? estadoActual.usuarioActual.plan,
+          tipoPerfil: contexto.usuario?.tipoPerfil ?? estadoActual.usuarioActual.tipoPerfil,
+          objetivoAcademico: contexto.usuario?.objetivoAcademico ?? estadoActual.usuarioActual.objetivoAcademico,
+          preferenciaMicroSesion:
+            contexto.usuario?.preferenciaMicroSesion ?? estadoActual.usuarioActual.preferenciaMicroSesion,
+          horarioLaboral: contexto.usuario?.horarioLaboral ?? estadoActual.usuarioActual.horarioLaboral,
+          diasMayorDisponibilidad:
+            contexto.usuario?.diasMayorDisponibilidad ?? estadoActual.usuarioActual.diasMayorDisponibilidad,
+          tieneTesisProyecto:
+            contexto.usuario?.tieneTesisProyecto ?? estadoActual.usuarioActual.tieneTesisProyecto,
+          tiempoRealDisponibleDia:
+            contexto.usuario?.tiempoRealDisponibleDia ?? estadoActual.usuarioActual.tiempoRealDisponibleDia,
           emailVerificado:
             contexto.usuario?.emailVerificado ?? estadoActual.usuarioActual.emailVerificado,
           horasDisponibles:
@@ -1594,6 +1754,8 @@ function integrarContexto(estadoActual: EstadoStudyFlow, contexto: ContextoApi):
     bloquesPlanificador: sincronizarBloquesClaseConCursos(cursos, contexto.bloquesPlanificador),
     notificaciones: contexto.notificaciones,
     mensajesChat: contexto.mensajesChat,
+    proyectosLargos: contexto.proyectosLargos?.map(normalizarProyectoLargoApi) ?? estadoActual.proyectosLargos,
+    proyectosGrupales: contexto.proyectosGrupales?.map(normalizarProyectoGrupalApi) ?? estadoActual.proyectosGrupales,
   };
 }
 
@@ -1618,6 +1780,8 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         usuarioActual: normalizarUsuarioPersistido(parseado.usuarioActual),
         cursos,
         tareas: normalizarTareas(parseado.tareas ?? []),
+        proyectosLargos: parseado.proyectosLargos ?? [],
+        proyectosGrupales: parseado.proyectosGrupales ?? [],
         bloquesPlanificador: sincronizarBloquesClaseConCursos(
           cursos,
           parseado.bloquesPlanificador ?? [],
@@ -1840,6 +2004,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             carrera: datos.career,
             semestre: datos.semester,
             plan: datos.plan,
+            tipoPerfil: datos.tipoPerfil ?? "universitario",
           });
 
           const siguienteUsuario = normalizarUsuarioApi(resultado.usuario);
@@ -1863,6 +2028,8 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             bloquesPlanificador: [],
             mensajesChat: [],
             notificaciones: [notificacionBienvenida, ...actual.notificaciones],
+            proyectosLargos: [],
+            proyectosGrupales: [],
           }));
 
           persistirNotificacion(siguienteUsuario.id, notificacionBienvenida);
@@ -1882,6 +2049,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             carrera: datos.career,
             semestre: datos.semester,
             plan: datos.plan,
+            tipoPerfil: datos.tipoPerfil ?? "universitario",
             emailVerificado: false,
           };
 
@@ -1988,6 +2156,13 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             universidad: datos.universidad.trim(),
             carrera: datos.carrera.trim(),
             semestre: datos.semestre.trim(),
+            tipoPerfil: datos.tipoPerfil,
+            objetivoAcademico: datos.objetivoAcademico,
+            horarioLaboral: datos.horarioLaboral,
+            diasMayorDisponibilidad: datos.diasMayorDisponibilidad,
+            tieneTesisProyecto: datos.tieneTesisProyecto,
+            tiempoRealDisponibleDia: datos.tiempoRealDisponibleDia,
+            preferenciaMicroSesion: datos.preferenciaMicroSesion,
           });
 
           setEstado((actual) => ({
@@ -2530,6 +2705,195 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }));
 
         api.eliminarExamen(examenId).catch(() => {});
+      },
+      agregarProyectoLargo: (proyecto) => {
+        if (!usuarioId) return;
+
+        const proyectoLocal: ProyectoLargo = {
+          id: crearId("long-project"),
+          cursoId: proyecto.cursoId,
+          titulo: proyecto.titulo,
+          descripcion: proyecto.descripcion,
+          tipo: proyecto.tipo,
+          fechaLimite: proyecto.fechaLimite,
+          faseActual: proyecto.faseActual ?? "investigacion",
+          progreso: 0,
+          ultimoAvance: new Date().toISOString(),
+          pasos: [],
+        };
+
+        setEstado((actual) => ({ ...actual, proyectosLargos: [proyectoLocal, ...actual.proyectosLargos] }));
+        api.crearProyectoLargo({ estudianteId: usuarioId, ...proyecto }).then((creado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosLargos: actual.proyectosLargos.map((item) =>
+              item.id === proyectoLocal.id ? normalizarProyectoLargoApi(creado) : item,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      actualizarProyectoLargo: (proyectoId, cambios) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosLargos: actual.proyectosLargos.map((proyecto) =>
+            proyecto.id === proyectoId ? recalcularProyectoLargo({ ...proyecto, ...cambios }) : proyecto,
+          ),
+        }));
+        api.actualizarProyectoLargo(proyectoId, cambios).catch(() => {});
+      },
+      eliminarProyectoLargo: (proyectoId) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosLargos: actual.proyectosLargos.filter((proyecto) => proyecto.id !== proyectoId),
+        }));
+        api.eliminarProyectoLargo(proyectoId).catch(() => {});
+      },
+      agregarPasoProyectoLargo: (proyectoId, titulo, fase = "investigacion") => {
+        const pasoLocal = { id: crearId("long-step"), proyectoId, titulo, fase, completado: false };
+        setEstado((actual) => ({
+          ...actual,
+          proyectosLargos: actual.proyectosLargos.map((proyecto) =>
+            proyecto.id === proyectoId
+              ? recalcularProyectoLargo({ ...proyecto, pasos: [...proyecto.pasos, pasoLocal] })
+              : proyecto,
+          ),
+        }));
+        api.crearPasoProyectoLargo(proyectoId, { titulo, fase }).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosLargos: actual.proyectosLargos.map((proyecto) =>
+              proyecto.id === proyectoId ? normalizarProyectoLargoApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      alternarPasoProyectoLargo: (pasoId, completado) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosLargos: actual.proyectosLargos.map((proyecto) =>
+            proyecto.pasos.some((paso) => paso.id === pasoId)
+              ? recalcularProyectoLargo({
+                  ...proyecto,
+                  pasos: proyecto.pasos.map((paso) => (paso.id === pasoId ? { ...paso, completado } : paso)),
+                })
+              : proyecto,
+          ),
+        }));
+        api.actualizarPasoProyectoLargo(pasoId, { completado }).catch(() => {});
+      },
+      agregarProyectoGrupal: (proyecto) => {
+        if (!usuarioId) return;
+
+        const proyectoLocal: ProyectoGrupal = {
+          id: crearId("team-project"),
+          cursoId: proyecto.cursoId,
+          nombre: proyecto.nombre,
+          descripcion: proyecto.descripcion,
+          fechaLimite: proyecto.fechaLimite,
+          integrantes: [],
+          tareas: [],
+        };
+        setEstado((actual) => ({ ...actual, proyectosGrupales: [proyectoLocal, ...actual.proyectosGrupales] }));
+        api.crearTrabajoGrupal({ estudianteId: usuarioId, ...proyecto }).then((creado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((item) =>
+              item.id === proyectoLocal.id ? normalizarProyectoGrupalApi(creado) : item,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      actualizarProyectoGrupal: (proyectoId, cambios) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+            proyecto.id === proyectoId ? { ...proyecto, ...cambios } : proyecto,
+          ),
+        }));
+        api.actualizarTrabajoGrupal(proyectoId, cambios).catch(() => {});
+      },
+      eliminarProyectoGrupal: (proyectoId) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.filter((proyecto) => proyecto.id !== proyectoId),
+        }));
+        api.eliminarTrabajoGrupal(proyectoId).catch(() => {});
+      },
+      agregarIntegranteProyectoGrupal: (proyectoId, nombre, rol = "Integrante") => {
+        const integrante = { id: crearId("member"), proyectoId, nombre, rol };
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+            proyecto.id === proyectoId ? { ...proyecto, integrantes: [...proyecto.integrantes, integrante] } : proyecto,
+          ),
+        }));
+        api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, rol }).catch(() => {});
+      },
+      agregarTareaProyectoGrupal: (proyectoId, titulo, fechaLimite, responsableId) => {
+        const tarea = {
+          id: crearId("team-task"),
+          proyectoId,
+          titulo,
+          responsableId,
+          fechaLimite,
+          estado: "pendiente" as const,
+          progreso: 0,
+        };
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+            proyecto.id === proyectoId ? { ...proyecto, tareas: [...proyecto.tareas, tarea] } : proyecto,
+          ),
+        }));
+        api.crearTareaTrabajoGrupal(proyectoId, { titulo, fechaLimite, responsableId }).catch(() => {});
+      },
+      actualizarTareaProyectoGrupal: (tareaId, cambios) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            tareas: proyecto.tareas.map((tarea) => (tarea.id === tareaId ? { ...tarea, ...cambios } : tarea)),
+          })),
+        }));
+        api.actualizarTareaTrabajoGrupal(tareaId, cambios).catch(() => {});
+      },
+      sugerirMicroSesion: () => {
+        const duracion = estado.usuarioActual?.preferenciaMicroSesion ?? 20;
+        const tarea = [...estado.tareas]
+          .filter((item) => obtenerEstadoVisualTarea(item) !== "completed")
+          .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega))[0];
+        return {
+          duracion,
+          tareaId: tarea?.id,
+          mensaje: tarea
+            ? `Hoy tienes poco tiempo disponible. Te recomendamos una micro-sesion de ${duracion} minutos para avanzar "${tarea.titulo}".`
+            : `Puedes retomar el ritmo con una micro-sesion de ${duracion} minutos.`,
+        };
+      },
+      agendarMicroSesion: (duracion, titulo) => {
+        const duracionFinal = duracion ?? estado.usuarioActual?.preferenciaMicroSesion ?? 20;
+        const tarea = [...estado.tareas]
+          .filter((item) => obtenerEstadoVisualTarea(item) !== "completed")
+          .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega))[0];
+        const curso = estado.cursos.find((item) => item.id === tarea?.cursoId);
+        const bloque: BloquePlanificador = {
+          id: crearId("micro"),
+          dia: (new Date().getDay() + 6) % 7,
+          horaInicio: 19,
+          duracion: duracionFinal / 60,
+          titulo: titulo || `Micro-sesion: ${tarea?.titulo ?? "retomar avance"}`,
+          cursoId: tarea?.cursoId,
+          color: curso?.color ?? "teal",
+          tipo: "micro_session",
+        };
+        const bloquesActualizados = ordenarBloquesPlanificador([...estado.bloquesPlanificador, bloque]);
+        registrarCambioPlanificador(estado.bloquesPlanificador);
+        setEstado((actual) => ({ ...actual, bloquesPlanificador: bloquesActualizados }));
+        guardarPlanificadorEnBackend(bloquesActualizados);
+        if (usuarioId) {
+          api.agendarMicroSesion(usuarioId, { duracion: duracionFinal, titulo: bloque.titulo, tareaId: tarea?.id }).catch(() => {});
+        }
+        return { ok: true, mensaje: `Agende una micro-sesion de ${duracionFinal} minutos.` };
       },
       marcarNotificacionLeida: (notificacionId) => {
         setEstado((actual) => ({
