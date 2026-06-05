@@ -19,19 +19,19 @@ export const PLANES: Record<
   },
   estudiante: {
     etiqueta: "Premium",
-    descripcion: "Planificador inteligente, IA academica y colaboracion basica.",
+    descripcion: "Planificacion inteligente para cursos, trabajo y colaboracion.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
   premium: {
     etiqueta: "Premium",
-    descripcion: "Planificador inteligente, IA academica y colaboracion basica.",
+    descripcion: "Planificacion inteligente para cursos, trabajo y colaboracion.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
   premium_plus: {
     etiqueta: "Premium Plus",
-    descripcion: "Productividad avanzada para posgrado y profesionales que trabajan y estudian.",
+    descripcion: "Productividad avanzada para tesis, proyectos largos y posgrado.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
@@ -61,6 +61,9 @@ export const BLOQUES_PREMIUM: TipoBloquePlanificador[] = [
   ...BLOQUES_BASICOS,
   "task",
   "review",
+  "work",
+  "personal",
+  "commute",
 ];
 export const BLOQUES_PREMIUM_PLUS: TipoBloquePlanificador[] = [
   "work",
