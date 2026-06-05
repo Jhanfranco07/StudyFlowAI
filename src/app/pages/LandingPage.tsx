@@ -150,6 +150,7 @@ const planes = [
       "Planificador inteligente.",
       "Planificación adaptada al horario laboral.",
       "Asistente IA con más consultas.",
+      "Agente IA que crea tareas desde el chat.",
       "Prioridades automáticas.",
       "Analíticas avanzadas.",
       "Gestión colaborativa de trabajos grupales.",

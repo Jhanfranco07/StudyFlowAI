@@ -48,6 +48,21 @@ import {
   type PanelVisualPlanificacion,
   type TonoPlanificadorLocal,
 } from "./ai-assistant-planning-types";
+import { isPremium } from "../data/plan-rules";
+
+type FlujoCreacionTareaChat = {
+  activo: boolean;
+  paso: "datos" | "confirmacion";
+  titulo?: string;
+  cursoId?: string;
+  fechaEntrega?: string;
+  prioridad?: Tarea["prioridad"];
+};
+
+const flujoCreacionTareaInicial: FlujoCreacionTareaChat = {
+  activo: false,
+  paso: "datos",
+};
 
 function resolverTonoPlanificadorLocal(
   tono: "frio" | "amigable" | "responsable" | null | undefined,
@@ -180,6 +195,78 @@ function detectarSolicitudPlanificacionHorario(mensaje: string) {
     "acomoda mi semana",
     "ordena mi semana",
   ].some((termino) => texto.includes(termino));
+}
+
+function detectarSolicitudCreacionTarea(mensaje: string) {
+  const texto = normalizarTextoPlanificacion(mensaje);
+  return [
+    "crea una tarea",
+    "creame una tarea",
+    "crear una tarea",
+    "agrega una tarea",
+    "agregame una tarea",
+    "anade una tarea",
+    "añade una tarea",
+    "nueva tarea",
+  ].some((termino) => texto.includes(termino));
+}
+
+function extraerFechaCreacionTarea(mensaje: string) {
+  const texto = normalizarTextoPlanificacion(mensaje);
+  const hoy = startOfToday();
+
+  if (texto.includes("pasado manana")) return format(addDays(hoy, 2), "yyyy-MM-dd");
+  if (texto.includes("manana")) return format(addDays(hoy, 1), "yyyy-MM-dd");
+  if (texto.includes("hoy")) return format(hoy, "yyyy-MM-dd");
+
+  const fechaIso = mensaje.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/)?.[0];
+  if (fechaIso) return fechaIso;
+
+  const fechaCorta = mensaje.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(20\d{2}))?\b/);
+  if (!fechaCorta) return undefined;
+
+  const dia = Number(fechaCorta[1]);
+  const mes = Number(fechaCorta[2]);
+  const anio = Number(fechaCorta[3] ?? hoy.getFullYear());
+  const fecha = new Date(anio, mes - 1, dia);
+  return Number.isNaN(fecha.getTime()) ? undefined : format(fecha, "yyyy-MM-dd");
+}
+
+function extraerPrioridadCreacionTarea(mensaje: string): Tarea["prioridad"] | undefined {
+  const texto = normalizarTextoPlanificacion(mensaje);
+  if (/\b(alta|urgente|high)\b/.test(texto)) return "high";
+  if (/\b(media|normal|medium)\b/.test(texto)) return "medium";
+  if (/\b(baja|low)\b/.test(texto)) return "low";
+  return undefined;
+}
+
+function limpiarTituloCreacionTarea(titulo: string) {
+  const limpio = titulo
+    .replace(/^(?:el|la|los|las)\s+/i, "")
+    .replace(/[.,;:!?¿¡]+$/g, "")
+    .trim();
+  return limpio ? limpio.charAt(0).toUpperCase() + limpio.slice(1) : undefined;
+}
+
+function extraerTituloCreacionTarea(mensaje: string) {
+  const tituloEntreComillas = mensaje.match(/["“](.+?)["”]/)?.[1];
+  if (tituloEntreComillas) return limpiarTituloCreacionTarea(tituloEntreComillas);
+
+  const tituloSobre = mensaje.match(
+    /\bsobre\s+(.+?)(?=\s+(?:para\s+(?:hoy|mañana|manana|pasado)|con\s+prioridad|prioridad)\b|$)/i,
+  )?.[1];
+  if (tituloSobre) return limpiarTituloCreacionTarea(tituloSobre);
+
+  const tituloLlamada = mensaje.match(
+    /\b(?:llamada|llamado|titulada|titulado)\s+(.+?)(?=\s+(?:para|en|con\s+prioridad|prioridad)\b|$)/i,
+  )?.[1];
+  return tituloLlamada ? limpiarTituloCreacionTarea(tituloLlamada) : undefined;
+}
+
+function etiquetaPrioridadTarea(prioridad: Tarea["prioridad"]) {
+  if (prioridad === "high") return "alta";
+  if (prioridad === "medium") return "media";
+  return "baja";
 }
 
 function extraerDiasBloqueados(mensaje: string) {
@@ -634,11 +721,13 @@ export default function AIAssistant() {
     examenes,
     bloquesPlanificador,
     fuenteAsistente,
+    agregarTarea,
   } = useStudyFlow();
   const [searchParams, setSearchParams] = useSearchParams();
   const [mensaje, setMensaje] = useState("");
   const [mensajesExpandidos, setMensajesExpandidos] = useState<Record<string, boolean>>({});
   const [flujoPlanificacion, setFlujoPlanificacion] = useState<FlujoPlanificacionChat>(flujoPlanificacionInicial);
+  const [flujoCreacionTarea, setFlujoCreacionTarea] = useState<FlujoCreacionTareaChat>(flujoCreacionTareaInicial);
   const [diasSeleccionadosPlanificacion, setDiasSeleccionadosPlanificacion] = useState<number[]>([]);
   const [previsualizacionPlanificacion, setPrevisualizacionPlanificacion] = useState<ResultadoPlanificacionInteligente | null>(null);
   const finConversacionRef = useRef<HTMLDivElement | null>(null);
@@ -662,7 +751,7 @@ export default function AIAssistant() {
       item.tipo === "ai" &&
       (item.mensaje === "Pensando tu respuesta con IA..." || item.mensaje === "Pensando tu respuesta con Groq..."),
   );
-  const fuenteVisible = flujoPlanificacion.activo ? "sistema" : fuenteAsistente;
+  const fuenteVisible = flujoPlanificacion.activo || flujoCreacionTarea.activo ? "sistema" : fuenteAsistente;
   const tonoPlanificador = resolverTonoPlanificadorLocal(usuarioActual?.tonoAsistente);
   const anexarMensajesPlanificacion = (
     mensajes: Array<{ tipo: "user" | "ai"; mensaje: string }>,
@@ -1042,8 +1131,137 @@ export default function AIAssistant() {
 
   const limpiarConversacion = () => {
     setFlujoPlanificacion(flujoPlanificacionInicial);
+    setFlujoCreacionTarea(flujoCreacionTareaInicial);
     setPrevisualizacionPlanificacion(null);
     limpiarMensajesAsistente();
+  };
+
+  const anexarMensajesCreacionTarea = (
+    mensajes: Array<{ tipo: "user" | "ai"; mensaje: string }>,
+  ) => anexarMensajesPlanificacion(mensajes);
+
+  const procesarMensajeCreacionTarea = (textoOriginal: string) => {
+    const texto = textoOriginal.trim();
+
+    if (!flujoCreacionTarea.activo) {
+      setFlujoPlanificacion(flujoPlanificacionInicial);
+      setPrevisualizacionPlanificacion(null);
+    }
+
+    if (!isPremium(usuarioActual)) {
+      anexarMensajesCreacionTarea([
+        { tipo: "user", mensaje: texto },
+        {
+          tipo: "ai",
+          mensaje:
+            "La creación de tareas desde el chat está disponible en Premium y Premium Plus. Puedes seguir creando tareas manualmente desde Tareas o mejorar tu plan para que yo las registre contigo.",
+        },
+      ]);
+      setFlujoCreacionTarea(flujoCreacionTareaInicial);
+      return;
+    }
+
+    if (flujoCreacionTarea.activo && esConfirmacionNegativaSegura(texto)) {
+      anexarMensajesCreacionTarea([
+        { tipo: "user", mensaje: texto },
+        { tipo: "ai", mensaje: "Listo, cancelé la creación. No hice ningún cambio en tus tareas." },
+      ]);
+      setFlujoCreacionTarea(flujoCreacionTareaInicial);
+      return;
+    }
+
+    if (flujoCreacionTarea.activo && flujoCreacionTarea.paso === "confirmacion") {
+      if (!esConfirmacionPositivaSegura(texto)) {
+        anexarMensajesCreacionTarea([
+          { tipo: "user", mensaje: texto },
+          { tipo: "ai", mensaje: "Para crearla necesito que respondas `si`. También puedes responder `no` para cancelar." },
+        ]);
+        return;
+      }
+
+      const curso = cursos.find((item) => item.id === flujoCreacionTarea.cursoId);
+      if (!curso || !flujoCreacionTarea.titulo || !flujoCreacionTarea.fechaEntrega || !flujoCreacionTarea.prioridad) {
+        setFlujoCreacionTarea(flujoCreacionTareaInicial);
+        return;
+      }
+
+      agregarTarea({
+        cursoId: curso.id,
+        titulo: flujoCreacionTarea.titulo,
+        descripcion: "Creada desde el asistente IA.",
+        fechaEntrega: flujoCreacionTarea.fechaEntrega,
+        prioridad: flujoCreacionTarea.prioridad,
+        horasEstimadas: 1,
+      });
+      anexarMensajesCreacionTarea([
+        { tipo: "user", mensaje: texto },
+        {
+          tipo: "ai",
+          mensaje:
+            `Tarea creada: **${flujoCreacionTarea.titulo}** en **${curso.nombre}**, ` +
+            `para ${formatearFechaExactaPlanificacion(flujoCreacionTarea.fechaEntrega)} con prioridad ${etiquetaPrioridadTarea(flujoCreacionTarea.prioridad)}. Ya aparece en tu lista de tareas.`,
+        },
+      ]);
+      setFlujoCreacionTarea(flujoCreacionTareaInicial);
+      return;
+    }
+
+    if (!cursos.length) {
+      anexarMensajesCreacionTarea([
+        { tipo: "user", mensaje: texto },
+        { tipo: "ai", mensaje: "Antes de crear una tarea necesito que tengas al menos un curso registrado." },
+      ]);
+      return;
+    }
+
+    const cursoDetectado = seleccionarCursoDesdeTexto(texto, cursos);
+    const fechaDetectada = extraerFechaCreacionTarea(texto);
+    const prioridadDetectada = extraerPrioridadCreacionTarea(texto);
+    const tituloDetectado = extraerTituloCreacionTarea(texto);
+    const textoSoloTitulo =
+      flujoCreacionTarea.activo &&
+      !flujoCreacionTarea.titulo &&
+      !cursoDetectado &&
+      !fechaDetectada &&
+      !prioridadDetectada
+        ? limpiarTituloCreacionTarea(texto)
+        : undefined;
+    const siguiente: FlujoCreacionTareaChat = {
+      ...flujoCreacionTarea,
+      activo: true,
+      paso: "datos",
+      titulo: tituloDetectado ?? textoSoloTitulo ?? flujoCreacionTarea.titulo,
+      cursoId: cursoDetectado?.id ?? flujoCreacionTarea.cursoId,
+      fechaEntrega: fechaDetectada ?? flujoCreacionTarea.fechaEntrega,
+      prioridad: prioridadDetectada ?? flujoCreacionTarea.prioridad,
+    };
+
+    let respuesta: string;
+    if (!siguiente.titulo) {
+      respuesta = "Claro. ¿Qué título debe tener la tarea? Puedes responder, por ejemplo, `Avance 02`.";
+    } else if (!siguiente.cursoId) {
+      respuesta =
+        `¿Para qué curso creo **${siguiente.titulo}**?\n\n` +
+        cursos.map((curso, indice) => `${indice + 1}. ${curso.nombre}`).join("\n");
+    } else if (!siguiente.fechaEntrega) {
+      respuesta = `Tengo el título y el curso. ¿Para cuándo vence **${siguiente.titulo}**? Puedes decir ` +
+        "`hoy`, `mañana` o una fecha como `15/06/2026`.";
+    } else if (!siguiente.prioridad) {
+      respuesta = "¿Qué prioridad tendrá: `alta`, `media` o `baja`?";
+    } else {
+      const curso = cursos.find((item) => item.id === siguiente.cursoId);
+      respuesta =
+        `Voy a crear **${siguiente.titulo}** en **${curso?.nombre ?? "el curso seleccionado"}**, ` +
+        `para ${formatearFechaExactaPlanificacion(siguiente.fechaEntrega)} con prioridad ${etiquetaPrioridadTarea(siguiente.prioridad)}.\n\n` +
+        "Responde `si` para crearla o `no` para cancelar.";
+      siguiente.paso = "confirmacion";
+    }
+
+    anexarMensajesCreacionTarea([
+      { tipo: "user", mensaje: texto },
+      { tipo: "ai", mensaje: respuesta },
+    ]);
+    setFlujoCreacionTarea(siguiente);
   };
 
   const iniciarFlujoPlanificacion = (mensajeUsuario?: string) => {
@@ -1507,6 +1725,11 @@ export default function AIAssistant() {
     event.preventDefault();
     if (asistentePensando) return;
     if (!mensaje.trim()) return;
+    if (flujoCreacionTarea.activo || detectarSolicitudCreacionTarea(mensaje.trim())) {
+      procesarMensajeCreacionTarea(mensaje.trim());
+      setMensaje("");
+      return;
+    }
     if (flujoPlanificacion.activo || detectarSolicitudPlanificacionHorario(mensaje.trim())) {
       procesarMensajePlanificacion(mensaje.trim());
       setMensaje("");
@@ -1518,6 +1741,11 @@ export default function AIAssistant() {
 
   const ejecutarAccionRapida = (texto: string) => {
     if (asistentePensando) return;
+    if (flujoCreacionTarea.activo || detectarSolicitudCreacionTarea(texto)) {
+      procesarMensajeCreacionTarea(texto);
+      setMensaje("");
+      return;
+    }
     if (flujoPlanificacion.activo || detectarSolicitudPlanificacionHorario(texto)) {
       procesarMensajePlanificacion(texto);
       setMensaje("");

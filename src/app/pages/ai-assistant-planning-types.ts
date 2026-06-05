@@ -7,6 +7,7 @@ import type {
 
 export const accionesRapidas = [
   "Planifica mi horario",
+  "Crea una tarea",
   "Explícame base de datos",
   "Hazme preguntas de práctica",
   "Resume este tema",
