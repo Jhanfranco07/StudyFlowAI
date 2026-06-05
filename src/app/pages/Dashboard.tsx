@@ -33,7 +33,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
-import { canUseMicroSessions, isPostgradProfile } from "../data/plan-rules";
+import { PLANES, TIPOS_PERFIL, canUseMicroSessions, isPostgradProfile, isPremiumPlus } from "../data/plan-rules";
 
 const etiquetasDias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const indiceHoy = (new Date().getDay() + 6) % 7;
@@ -93,22 +93,63 @@ export default function Dashboard() {
       : "Tu carga académica se ve estable por ahora.";
 
   const perfilTrabajoEstudio = isPostgradProfile(usuarioActual);
+  const premiumPlusActivo = isPremiumPlus(usuarioActual);
   const microSesion = sugerirMicroSesion();
   const proyectoEnRiesgo = proyectosLargos.find((proyecto) => proyecto.progreso < 50);
   const horasTrabajoSemana = bloquesPlanificador
     .filter((bloque) => bloque.tipo === "work")
     .reduce((sum, bloque) => sum + bloque.duracion, 0);
+  const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
+  const estadoInicial = cursos.length === 0 && tareas.length === 0 && examenes.length === 0;
+  const checklistInicio = [
+    "Registra tus primeros cursos para activar el radar de riesgo.",
+    "Carga tareas o exámenes para que la IA priorice por fecha real.",
+    perfilTrabajoEstudio
+      ? "Añade bloques de trabajo y disponibilidad para adaptar mejor tu semana."
+      : "Crea bloques de estudio para empezar a ver recomendaciones útiles.",
+  ];
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="mb-2 text-2xl font-bold leading-tight sm:text-3xl">
-          Hola, {usuarioActual?.nombres}. Este es tu plan académico de hoy.
-        </h1>
-        <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
-          Tus cursos, tareas, exámenes y bloques de estudio ya alimentan el panel en tiempo real.
-        </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge className="bg-slate-100 text-slate-700">{planActual.etiqueta}</Badge>
+            <Badge className="bg-blue-50 text-blue-700">
+              {usuarioActual?.tipoPerfil ? TIPOS_PERFIL[usuarioActual.tipoPerfil] : "Universitario"}
+            </Badge>
+            {premiumPlusActivo ? <Badge className="bg-emerald-50 text-emerald-700">Premium Plus activo</Badge> : null}
+          </div>
+          <h1 className="mb-2 text-2xl font-bold leading-tight sm:text-3xl">
+            Hola, {usuarioActual?.nombres}. Este es tu plan académico de hoy.
+          </h1>
+          <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
+            {perfilTrabajoEstudio
+              ? "Tus cursos, tareas, trabajo y bloques reales ya alimentan una vista combinada para decidir mejor qué mover primero."
+              : "Tus cursos, tareas, exámenes y bloques de estudio ya alimentan el panel en tiempo real."}
+          </p>
+        </div>
+        {premiumPlusActivo ? (
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 lg:max-w-sm">
+            Premium Plus ya puede apoyarte con micro-sesiones, bloques de tesis y una lectura más realista de trabajo + estudio.
+          </div>
+        ) : null}
       </div>
+
+      {estadoInicial ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardHeader>
+            <CardTitle>Empieza con una base útil</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-slate-600">
+            {checklistInicio.map((item) => (
+              <div key={item} className="rounded-2xl bg-slate-50 px-4 py-3">
+                {item}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
         <StatCard icon={CheckSquare} value={`${tareasActivas.length}`} label="Tareas activas" tone="blue" />
@@ -150,6 +191,36 @@ export default function Dashboard() {
             </div>
             <div className="rounded-2xl bg-white/10 p-4 md:col-span-2 xl:col-span-4">
               <p className="text-sm text-white/80">{microSesion.mensaje}</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {premiumPlusActivo ? (
+        <Card className="border-none bg-gradient-to-br from-emerald-50 via-white to-cyan-50 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-600" />
+              Centro Premium Plus
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-3">
+            <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+              <p className="text-sm font-semibold text-slate-900">Adaptación automática</p>
+              <p className="mt-2 text-sm text-slate-600">
+                Usa tus bloques de trabajo, traslado y disponibilidad para ubicar mejor estudio y micro-avances.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+              <p className="text-sm font-semibold text-slate-900">Proyectos largos activos</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{proyectosLargos.length}</p>
+              <p className="mt-1 text-sm text-slate-600">Tesis, investigación y entregables de seguimiento sostenido.</p>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-white p-4">
+              <p className="text-sm font-semibold text-slate-900">Ritmo de recuperación</p>
+              <p className="mt-2 text-sm text-slate-600">
+                {microSesion.mensaje || "Cuando la semana se aprieta, el sistema prioriza bloques cortos para no perder tracción."}
+              </p>
             </div>
           </CardContent>
         </Card>

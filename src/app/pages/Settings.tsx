@@ -16,6 +16,7 @@ import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
 import {
   DURACIONES_MICRO_SESION,
   OBJETIVOS_ACADEMICOS,
+  PERFILES_TRABAJO_ESTUDIO,
   TIPOS_PERFIL,
   obtenerMensajeRecomendacionPlan,
 } from "../data/plan-rules";
@@ -65,17 +66,17 @@ export default function Settings() {
       },
       estudiante: {
         etiqueta: "Plan Premium",
-        descripcion: "Incluye planificador inteligente y uso ilimitado del agente para estudiar.",
+        descripcion: "Incluye planificador inteligente, IA académica y bloques manuales de trabajo, traslado y tiempo personal.",
         estilo: "bg-blue-100 text-blue-700",
       },
       premium: {
         etiqueta: "Plan Premium",
-        descripcion: "Incluye planificador inteligente y uso ilimitado del agente para estudiar.",
+        descripcion: "Incluye planificador inteligente, IA académica y bloques manuales de trabajo, traslado y tiempo personal.",
         estilo: "bg-purple-100 text-purple-700",
       },
       premium_plus: {
         etiqueta: "Plan Premium Plus",
-        descripcion: "Incluye productividad avanzada para trabajo, estudio, tesis y micro-sesiones.",
+        descripcion: "Incluye adaptación automática de trabajo + estudio, micro-sesiones, tesis y seguimiento avanzado.",
         estilo: "bg-indigo-100 text-indigo-700",
       },
     };
@@ -91,10 +92,7 @@ export default function Settings() {
     window.setTimeout(() => setEstadoGuardado("idle"), 2500);
   };
   const recomendacionPlan = obtenerMensajeRecomendacionPlan(perfil);
-  const muestraCamposProfesionales =
-    perfil.tipoPerfil === "posgrado" ||
-    perfil.tipoPerfil === "profesional_estudia" ||
-    perfil.tipoPerfil === "diplomado_maestria";
+  const muestraCamposProfesionales = PERFILES_TRABAJO_ESTUDIO.includes(perfil.tipoPerfil);
 
   const resumenPermisoNavegador = {
     granted: {

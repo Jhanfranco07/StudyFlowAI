@@ -15,7 +15,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
-import { canUseLongProjects } from "../data/plan-rules";
+import { PLANES, canUseLongProjects } from "../data/plan-rules";
 import { obtenerAlertasInteligentes, useStudyFlow } from "../data/studyflow-store";
 import { Button } from "./ui/button";
 
@@ -44,6 +44,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
   );
   const totalNotificacionesVisibles = Math.max(cantidadNoLeidas, alertasInteligentes.length);
   const menuItemsVisibles = menuItems.filter((item) => !item.premiumPlus || canUseLongProjects(usuarioActual));
+  const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 
   return (
     <aside
@@ -98,6 +99,9 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
             {usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : "Invitado"}
           </p>
           <p className="text-sm text-white/70">{usuarioActual?.carrera ?? "Completa tu perfil"}</p>
+          <div className="mt-3 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
+            {planActual.etiqueta}
+          </div>
           <Button
             variant="secondary"
             className="mt-4 w-full justify-center border-white/10 bg-white/10 text-white hover:bg-white/20"

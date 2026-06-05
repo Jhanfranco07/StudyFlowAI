@@ -7,7 +7,8 @@ export type TipoPerfilUsuario =
   | "instituto"
   | "posgrado"
   | "profesional_estudia"
-  | "diplomado_maestria";
+  | "diplomado_maestria"
+  | "segunda_especialidad";
 export type ObjetivoAcademico =
   | "aprobar_cursos"
   | "preparar_examenes"

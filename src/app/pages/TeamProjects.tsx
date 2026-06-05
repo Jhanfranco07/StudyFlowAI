@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Copy, Link2, Plus, UsersRound } from "lucide-react";
-import { PLANES, canUseTeamProjectsAdvanced } from "../data/plan-rules";
+import { Activity, Copy, Link2, Plus, ShieldCheck, UsersRound } from "lucide-react";
+import { PLANES, canUseTeamProjectsAdvanced, isPremiumPlus } from "../data/plan-rules";
 import {
   formatearFechaCorta,
   useStudyFlow,
@@ -30,6 +30,10 @@ const roles: Array<{ value: RolIntegranteProyecto; label: string }> = [
   { value: "lector", label: "Lector" },
   { value: "admin", label: "Admin" },
 ];
+
+function etiquetaRolPermiso(rol: RolIntegranteProyecto) {
+  return roles.find((item) => item.value === rol)?.label ?? rol;
+}
 
 function obtenerIniciales(nombre: string) {
   return (
@@ -64,6 +68,7 @@ export default function TeamProjects() {
   const [mensajeCopiado, setMensajeCopiado] = useState<Record<string, string>>({});
   const [nuevaTarea, setNuevaTarea] = useState<Record<string, string>>({});
   const puedeAvanzado = canUseTeamProjectsAdvanced(usuarioActual);
+  const premiumPlusActivo = isPremiumPlus(usuarioActual);
   const plan = PLANES[usuarioActual?.plan ?? "gratis"];
   const puedeCrearProyecto =
     plan.limiteProyectosGrupales === "ilimitado" || proyectosGrupales.length < plan.limiteProyectosGrupales;
@@ -155,12 +160,46 @@ export default function TeamProjects() {
         <Stat label="Avance global" value={`${resumen.avance}%`} />
       </div>
 
+      {premiumPlusActivo ? (
+        <Card className="border-none bg-gradient-to-br from-slate-950 via-cyan-950 to-slate-900 text-white shadow-lg">
+          <CardContent className="grid gap-4 p-6 md:grid-cols-3">
+            <div>
+              <p className="text-sm font-semibold text-cyan-200">Modo avanzado activo</p>
+              <p className="mt-2 text-sm text-white/75">
+                Premium Plus refuerza la coordinación con permisos más claros, seguimiento operativo y lectura rápida del tablero.
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cyan-200">Qué mirar primero</p>
+              <p className="mt-2 text-sm text-white/75">
+                Prioriza tareas sin responsable, entregas próximas y tarjetas en revisión para evitar cuellos de botella.
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-cyan-200">Invitación del equipo</p>
+              <p className="mt-2 text-sm text-white/75">
+                Cada tablero mantiene enlace y código listos para compartir sin sacar al equipo del flujo.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {!puedeAvanzado ? (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-5 text-sm text-amber-800">
             {puedeCrearProyecto
               ? "En Gratis puedes validar 1 proyecto grupal activo. Premium habilita mas tableros, responsables y seguimiento avanzado."
               : "Alcanzaste el limite de 1 proyecto grupal del plan Gratis. Premium habilita proyectos ilimitados y seguimiento avanzado."}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {proyectosGrupales.length === 0 ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardContent className="space-y-3 p-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Todavía no tienes tableros grupales activos.</p>
+            <p>Crea uno para repartir responsables, mover tareas por estado y compartir enlace o código con tu equipo.</p>
           </CardContent>
         </Card>
       ) : null}
@@ -178,6 +217,11 @@ export default function TeamProjects() {
               : 0;
             return { integrante, promedio };
           });
+          const tareasSinResponsable = proyecto.tareas.filter((tarea) => !tarea.responsableId).length;
+          const tareasEnRevision = proyecto.tareas.filter((tarea) => tarea.estado === "en_revision").length;
+          const proximas = [...proyecto.tareas]
+            .sort((a, b) => a.fechaLimite.localeCompare(b.fechaLimite))
+            .slice(0, 3);
 
           return (
             <Card key={proyecto.id} className="border-none shadow-lg">
@@ -207,6 +251,7 @@ export default function TeamProjects() {
                         {proyecto.integrantes.length} integrante{proyecto.integrantes.length === 1 ? "" : "s"}
                       </span>
                       <Badge className="bg-slate-100 text-slate-700">Codigo {proyecto.codigoInvitacion}</Badge>
+                      {premiumPlusActivo ? <Badge className="bg-cyan-50 text-cyan-700">Modo avanzado</Badge> : null}
                     </div>
                   </div>
                   <div className="min-w-52">
@@ -278,9 +323,54 @@ export default function TeamProjects() {
                 <div className="flex flex-wrap gap-2">
                   {avancePorIntegrante.map(({ integrante, promedio }) => (
                     <Badge key={integrante.id} className="bg-blue-50 text-blue-700">
-                      {integrante.nombre}: {promedio}% - {integrante.rolPermiso}
+                      {integrante.nombre}: {promedio}% - {etiquetaRolPermiso(integrante.rolPermiso)}
                     </Badge>
                   ))}
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center gap-2 text-slate-900">
+                      <Activity className="h-4 w-4" />
+                      <p className="text-sm font-semibold">Pulso operativo</p>
+                    </div>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl bg-white p-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Sin responsable</p>
+                        <p className="mt-2 text-2xl font-bold text-slate-900">{tareasSinResponsable}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white p-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">En revisión</p>
+                        <p className="mt-2 text-2xl font-bold text-slate-900">{tareasEnRevision}</p>
+                      </div>
+                      <div className="rounded-2xl bg-white p-3">
+                        <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Próximas entregas</p>
+                        <p className="mt-2 text-2xl font-bold text-slate-900">{proximas.length}</p>
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {proximas.map((tarea) => {
+                        const responsable = proyecto.integrantes.find((integrante) => integrante.id === tarea.responsableId);
+                        return (
+                          <div key={tarea.id} className="rounded-2xl bg-white px-3 py-2 text-sm text-slate-700">
+                            {tarea.titulo} · {formatearFechaCorta(tarea.fechaLimite)} · {responsable?.nombre ?? "Sin asignar"}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-center gap-2 text-slate-900">
+                      <ShieldCheck className="h-4 w-4" />
+                      <p className="text-sm font-semibold">Roles del tablero</p>
+                    </div>
+                    <div className="mt-4 space-y-2 text-sm text-slate-600">
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="font-medium text-slate-900">Admin:</span> organiza el tablero y coordina entregas.</div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="font-medium text-slate-900">Editor:</span> actualiza tareas y mueve el progreso.</div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="font-medium text-slate-900">Responsable:</span> lidera una parte concreta del trabajo.</div>
+                      <div className="rounded-2xl bg-slate-50 px-3 py-2"><span className="font-medium text-slate-900">Lector:</span> revisa el tablero sin cambiar la ejecución.</div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-4">

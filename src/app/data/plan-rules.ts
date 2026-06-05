@@ -43,7 +43,15 @@ export const TIPOS_PERFIL: Record<TipoPerfilUsuario, string> = {
   posgrado: "Posgrado",
   profesional_estudia: "Profesional que trabaja y estudia",
   diplomado_maestria: "Diplomado o maestria",
+  segunda_especialidad: "Segunda especialidad",
 };
+
+export const PERFILES_TRABAJO_ESTUDIO: TipoPerfilUsuario[] = [
+  "posgrado",
+  "profesional_estudia",
+  "diplomado_maestria",
+  "segunda_especialidad",
+];
 
 export const OBJETIVOS_ACADEMICOS = [
   { valor: "aprobar_cursos", etiqueta: "Aprobar cursos" },
@@ -110,7 +118,8 @@ export function normalizarTipoPerfil(tipo: string | null | undefined): TipoPerfi
     tipo === "instituto" ||
     tipo === "posgrado" ||
     tipo === "profesional_estudia" ||
-    tipo === "diplomado_maestria"
+    tipo === "diplomado_maestria" ||
+    tipo === "segunda_especialidad"
   ) {
     return tipo;
   }
@@ -128,7 +137,7 @@ export function isPremiumPlus(usuario: Pick<PerfilUsuario, "plan"> | null | unde
 
 export function isPostgradProfile(usuario: Pick<PerfilUsuario, "tipoPerfil"> | null | undefined) {
   const tipo = normalizarTipoPerfil(usuario?.tipoPerfil);
-  return tipo === "posgrado" || tipo === "profesional_estudia" || tipo === "diplomado_maestria";
+  return PERFILES_TRABAJO_ESTUDIO.includes(tipo);
 }
 
 export function canUseMicroSessions(usuario: Pick<PerfilUsuario, "plan"> | null | undefined) {

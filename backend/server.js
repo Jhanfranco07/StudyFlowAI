@@ -1112,13 +1112,14 @@ async function generarRespuestaConIA({ mensaje, contexto }) {
   const esPerfilProfesional =
     perfil?.tipoPerfil === "posgrado" ||
     perfil?.tipoPerfil === "profesional_estudia" ||
-    perfil?.tipoPerfil === "diplomado_maestria";
+    perfil?.tipoPerfil === "diplomado_maestria" ||
+    perfil?.tipoPerfil === "segunda_especialidad";
   const instrucciones =
     `Eres StudyFlow AI, un asistente academico y de productividad en espanol. Responde con tono claro, util, conversacional, humano y profesional. ${instruccionTono} ` +
     `Debes basarte en los datos reales del sistema y no inventar datos. Usa los totales explicitos del contexto para cantidades. ` +
     `No afirmes que creaste, modificaste o eliminaste datos salvo que el sistema ya haya ejecutado esa accion. ` +
     `Adapta la respuesta al tipo_perfil y plan. Si el usuario es universitario o instituto, prioriza cursos, tareas, examenes y estudio regular. ` +
-    `Si el usuario es posgrado, profesional que trabaja y estudia, diplomado o maestria, considera horario laboral, cansancio, poco tiempo, micro-sesiones, tesis/proyectos largos, trabajo colaborativo y balance personal. ` +
+    `Si el usuario es posgrado, profesional que trabaja y estudia, diplomado, maestria o segunda especialidad, considera horario laboral, cansancio, poco tiempo, micro-sesiones, tesis/proyectos largos, trabajo colaborativo y balance personal. ` +
     `No propongas horarios poco realistas. Sugiere pasos pequenos para retomar el ritmo. Premium Plus es una recomendacion suave, nunca una obligacion. ` +
     `Si una funcion avanzada no esta en el plan actual, muestra una vista previa o recomendacion elegante sin bloquear agresivamente.`;
 
@@ -1570,6 +1571,10 @@ async function asegurarColumnasCompatibilidad() {
 
   await pool.query("alter table estudiantes add column if not exists google_sub text");
   await pool.query("alter table estudiantes add column if not exists tipo_perfil text not null default 'universitario'");
+  await pool.query("alter table estudiantes drop constraint if exists estudiantes_tipo_perfil_check");
+  await pool.query(
+    "alter table estudiantes add constraint estudiantes_tipo_perfil_check check (tipo_perfil in ('universitario', 'instituto', 'posgrado', 'profesional_estudia', 'diplomado_maestria', 'segunda_especialidad'))",
+  );
   await pool.query("alter table estudiantes add column if not exists objetivo_academico text not null default 'aprobar_cursos'");
   await pool.query("alter table estudiantes add column if not exists preferencia_micro_sesion int not null default 20");
   await pool.query("alter table estudiantes add column if not exists horario_laboral text");

@@ -11,7 +11,7 @@ create table if not exists estudiantes (
   carrera text not null,
   semestre text not null,
   plan text not null default 'gratis' check (plan in ('gratis', 'estudiante', 'premium', 'premium_plus')),
-  tipo_perfil text not null default 'universitario' check (tipo_perfil in ('universitario', 'instituto', 'posgrado', 'profesional_estudia', 'diplomado_maestria')),
+  tipo_perfil text not null default 'universitario' check (tipo_perfil in ('universitario', 'instituto', 'posgrado', 'profesional_estudia', 'diplomado_maestria', 'segunda_especialidad')),
   objetivo_academico text not null default 'aprobar_cursos' check (objetivo_academico in ('aprobar_cursos', 'preparar_examenes', 'avanzar_tesis', 'terminar_proyecto_final', 'organizar_trabajo_estudio', 'mejorar_productividad')),
   preferencia_micro_sesion int not null default 20 check (preferencia_micro_sesion in (15, 20, 30, 45)),
   horario_laboral text,

@@ -70,7 +70,13 @@ export type UsuarioApi = {
   carrera: string;
   semestre: string;
   plan: "gratis" | "estudiante" | "premium" | "premium_plus";
-  tipoPerfil: "universitario" | "instituto" | "posgrado" | "profesional_estudia" | "diplomado_maestria";
+  tipoPerfil:
+    | "universitario"
+    | "instituto"
+    | "posgrado"
+    | "profesional_estudia"
+    | "diplomado_maestria"
+    | "segunda_especialidad";
   objetivoAcademico:
     | "aprobar_cursos"
     | "preparar_examenes"

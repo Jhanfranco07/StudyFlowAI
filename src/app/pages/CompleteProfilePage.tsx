@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import { GraduationCap, School } from "lucide-react";
 import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
-import { DURACIONES_MICRO_SESION, OBJETIVOS_ACADEMICOS, TIPOS_PERFIL } from "../data/plan-rules";
+import { DURACIONES_MICRO_SESION, OBJETIVOS_ACADEMICOS, PERFILES_TRABAJO_ESTUDIO, TIPOS_PERFIL } from "../data/plan-rules";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -202,7 +202,7 @@ export default function CompleteProfilePage() {
               </Select>
             </div>
 
-            {["posgrado", "profesional_estudia", "diplomado_maestria"].includes(formData.tipoPerfil) ? (
+            {PERFILES_TRABAJO_ESTUDIO.includes(formData.tipoPerfil) ? (
               <>
                 <div>
                   <Label>Horario laboral aproximado</Label>
