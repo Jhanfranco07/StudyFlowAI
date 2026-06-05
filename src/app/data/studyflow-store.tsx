@@ -206,6 +206,9 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
     jornada: JornadaPlanificacion;
     modoTodo?: ModoPlanificacionTodo;
   }) => ResultadoPlanificacionInteligente;
+  agregarBloquesPlanificador: (
+    bloques: Array<Omit<BloquePlanificador, "id">>,
+  ) => { ok: boolean; mensaje: string; bloquesCreados: number };
   moverBloquePlanificador: (bloqueId: string, dia: number, horaInicio: number) => void;
   actualizarBloquePlanificador: (bloqueId: string, cambios: Partial<BloquePlanificador>) => void;
   eliminarBloquePlanificador: (bloqueId: string) => void;
@@ -3305,6 +3308,70 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
       },
       generarHorarioInteligente: () => {
         return;
+      },
+      agregarBloquesPlanificador: (bloques) => {
+        if (!bloques.length) {
+          return {
+            ok: false,
+            mensaje: "No encontré bloques válidos para agregar al planner.",
+            bloquesCreados: 0,
+          };
+        }
+
+        const bloquesNormalizados = bloques.map((bloque) => ({
+          ...bloque,
+          horaInicio: Math.max(HORA_MIN_PLANIFICADOR, Math.min(HORA_MAX_PLANIFICADOR, bloque.horaInicio)),
+          duracion: Math.max(0.25, Number(bloque.duracion.toFixed(2))),
+        }));
+
+        const bloquesNuevos: BloquePlanificador[] = [];
+        for (const bloque of bloquesNormalizados) {
+          const bloquesComparables = [...estado.bloquesPlanificador, ...bloquesNuevos];
+          if (haySolapamientoBloque(bloquesComparables, bloque.dia, bloque.horaInicio, bloque.duracion)) {
+            return {
+              ok: false,
+              mensaje: `No pude guardar el bloque "${bloque.titulo}" porque se cruza con otro horario de tu planner.`,
+              bloquesCreados: 0,
+            };
+          }
+
+          bloquesNuevos.push({
+            ...bloque,
+            id: crearId("planner"),
+          });
+        }
+
+        const bloquesActualizados = ordenarBloquesPlanificador([
+          ...estado.bloquesPlanificador,
+          ...bloquesNuevos,
+        ]);
+        const notificacionLocal: NotificacionItem = {
+          id: crearId("notif"),
+          tipo: "success",
+          titulo: "Bloques agregados al planner",
+          mensaje: `Se agregaron ${bloquesNuevos.length} bloque${bloquesNuevos.length === 1 ? "" : "s"} desde el asistente IA.`,
+          creadaEn: new Date().toISOString(),
+          noLeida: true,
+        };
+
+        registrarCambioPlanificador(estado.bloquesPlanificador);
+        setEstado((actual) => ({
+          ...actual,
+          fuenteAsistente: "sistema",
+          bloquesPlanificador: bloquesActualizados,
+          notificaciones: [notificacionLocal, ...actual.notificaciones],
+        }));
+
+        if (usuarioId) {
+          guardarPlanificadorEnBackend(bloquesActualizados);
+          persistirNotificacion(usuarioId, notificacionLocal);
+        }
+
+        return {
+          ok: true,
+          mensaje: `Agregué ${bloquesNuevos.length} bloque${bloquesNuevos.length === 1 ? "" : "s"} al planificador.`,
+          bloquesCreados: bloquesNuevos.length,
+        };
       },
       moverBloquePlanificador: (bloqueId, dia, horaInicio) => {
         const bloqueObjetivo = estado.bloquesPlanificador.find((bloque) => bloque.id === bloqueId);

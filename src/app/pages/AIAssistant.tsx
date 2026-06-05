@@ -194,14 +194,24 @@ function detectarSolicitudPlanificacionHorario(mensaje: string) {
     "organiza mi semana",
     "organiza mi horario",
     "reorganiza mi horario",
+    "acomoda mi semana",
+    "ordena mi semana",
+  ].some((termino) => texto.includes(termino));
+}
+
+function detectarSolicitudAplicarPlanChat(mensaje: string) {
+  const texto = normalizarTextoPlanificacion(mensaje);
+  return [
     "ponlo en mi planificador",
     "ponlo en el planificador",
     "agregalo a mi planificador",
     "agregalo al planificador",
     "ponlo en mi planner",
     "agregalo a mi planner",
-    "acomoda mi semana",
-    "ordena mi semana",
+    "guardalo en mi planificador",
+    "guardalo en el planificador",
+    "crealo en mi planificador",
+    "metelo en mi planificador",
   ].some((termino) => texto.includes(termino));
 }
 
@@ -410,6 +420,131 @@ function detectarModoPlanificacionTodo(mensaje: string): ModoPlanificacionTodo |
   }
 
   return null;
+}
+
+function convertirHoraTextoANumero(valor: string) {
+  const coincidencia = valor.match(/^(\d{1,2}):(\d{2})$/);
+  if (!coincidencia) return null;
+  const horas = Number(coincidencia[1]);
+  const minutos = Number(coincidencia[2]);
+  if (!Number.isFinite(horas) || !Number.isFinite(minutos)) return null;
+  return horas + minutos / 60;
+}
+
+function redondearCuartoSuperior(valor: number) {
+  return Math.ceil(valor * 4) / 4;
+}
+
+function normalizarClavePlan(texto: string) {
+  return normalizarTextoPlanificacion(texto)
+    .replace(/^pomodoro\s*\d+\s*[-–]\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extraerBloquesDesdeMensajePlan(
+  mensaje: string,
+  cursos: Curso[],
+): Array<Omit<BloquePlanificador, "id">> {
+  const lineas = mensaje.split("\n");
+  const hoy = new Date();
+  const diaActual = (hoy.getDay() + 6) % 7;
+  const bloquesTemporales: Array<{
+    inicio: number;
+    fin: number;
+    titulo: string;
+    tipo: BloquePlanificador["tipo"];
+    cursoId?: string;
+    color: string;
+    claveAgrupacion: string;
+  }> = [];
+
+  for (const linea of lineas) {
+    const coincidencia = linea.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})\s*:\s*(.+)$/);
+    if (!coincidencia) continue;
+
+    const inicio = convertirHoraTextoANumero(coincidencia[1]);
+    const fin = convertirHoraTextoANumero(coincidencia[2]);
+    const descripcion = coincidencia[3].trim();
+    if (inicio === null || fin === null || fin <= inicio) continue;
+
+    const cursoTexto = descripcion.match(/\(([^)]+)\)\s*$/)?.[1]?.trim();
+    const tituloBase = descripcion
+      .replace(/\(([^)]+)\)\s*$/g, "")
+      .replace(/^Pomodoro\s*\d+\s*[–-]\s*/i, "")
+      .trim();
+    const esDescanso = normalizarTextoPlanificacion(tituloBase).includes("descanso");
+    const cursoRelacionado =
+      cursos.find((curso) => cursoTexto && normalizarTextoPlanificacion(curso.nombre) === normalizarTextoPlanificacion(cursoTexto)) ??
+      cursos.find((curso) => cursoTexto && normalizarTextoPlanificacion(curso.nombre).includes(normalizarTextoPlanificacion(cursoTexto))) ??
+      cursos.find((curso) => normalizarTextoPlanificacion(tituloBase).includes(normalizarTextoPlanificacion(curso.nombre)));
+
+    bloquesTemporales.push({
+      inicio,
+      fin,
+      titulo: esDescanso ? "Descanso corto" : tituloBase,
+      tipo: esDescanso ? "break" : "study",
+      cursoId: esDescanso ? undefined : cursoRelacionado?.id,
+      color: esDescanso ? "slate" : cursoRelacionado?.color ?? "blue",
+      claveAgrupacion: esDescanso ? "break" : `${normalizarClavePlan(tituloBase)}::${cursoRelacionado?.id ?? cursoTexto ?? "sin-curso"}`,
+    });
+  }
+
+  const bloquesFusionados: Array<Omit<BloquePlanificador, "id">> = [];
+  let bloquePendiente:
+    | {
+        inicio: number;
+        fin: number;
+        titulo: string;
+        cursoId?: string;
+        color: string;
+        claveAgrupacion: string;
+      }
+    | null = null;
+
+  const cerrarPendiente = () => {
+    if (!bloquePendiente) return;
+    const inicioRedondeado = Math.floor(bloquePendiente.inicio * 4) / 4;
+    const finRedondeado = redondearCuartoSuperior(bloquePendiente.fin);
+    bloquesFusionados.push({
+      dia: diaActual,
+      horaInicio: inicioRedondeado,
+      duracion: Number(Math.max(0.25, finRedondeado - inicioRedondeado).toFixed(2)),
+      titulo: bloquePendiente.titulo,
+      cursoId: bloquePendiente.cursoId,
+      color: bloquePendiente.color,
+      tipo: "study",
+    });
+    bloquePendiente = null;
+  };
+
+  for (const bloque of bloquesTemporales) {
+    if (bloque.tipo === "break") {
+      continue;
+    }
+
+    if (
+      bloquePendiente &&
+      bloquePendiente.claveAgrupacion === bloque.claveAgrupacion &&
+      bloque.inicio - bloquePendiente.fin <= 0.17
+    ) {
+      bloquePendiente.fin = bloque.fin;
+      continue;
+    }
+
+    cerrarPendiente();
+    bloquePendiente = {
+      inicio: bloque.inicio,
+      fin: bloque.fin,
+      titulo: bloque.titulo,
+      cursoId: bloque.cursoId,
+      color: bloque.color,
+      claveAgrupacion: bloque.claveAgrupacion,
+    };
+  }
+
+  cerrarPendiente();
+  return bloquesFusionados;
 }
 
 function obtenerResumenModoTodo(modoTodo: ModoPlanificacionTodo) {
@@ -738,6 +873,7 @@ export default function AIAssistant() {
     bloquesPlanificador,
     fuenteAsistente,
     agregarTarea,
+    agregarBloquesPlanificador,
   } = useStudyFlow();
   const [searchParams, setSearchParams] = useSearchParams();
   const [mensaje, setMensaje] = useState("");
@@ -1155,6 +1291,66 @@ export default function AIAssistant() {
   const anexarMensajesCreacionTarea = (
     mensajes: Array<{ tipo: "user" | "ai"; mensaje: string }>,
   ) => anexarMensajesPlanificacion(mensajes);
+
+  const aplicarUltimoPlanTextualAlPlanner = (texto: string) => {
+    if (!isPremium(usuarioActual)) {
+      anexarMensajesPlanificacion([
+        { tipo: "user", mensaje: texto },
+        {
+          tipo: "ai",
+          mensaje:
+            "Guardar un plan sugerido del chat directamente en tu planner está disponible en Premium y Premium Plus. Con el plan gratis aún puedes usar la planificación guiada base.",
+        },
+      ]);
+      return true;
+    }
+
+    const ultimoMensajePlan = [...mensajesChat]
+      .reverse()
+      .find(
+        (item) =>
+          item.tipo === "ai" &&
+          /(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})\s*:/m.test(item.mensaje) &&
+          normalizarTextoPlanificacion(item.mensaje).includes("plan de estudio"),
+      );
+
+    if (!ultimoMensajePlan) {
+      anexarMensajesPlanificacion([
+        { tipo: "user", mensaje: texto },
+        {
+          tipo: "ai",
+          mensaje:
+            "No encontré un plan horario reciente en este chat para llevarlo al planner. Pídeme primero un plan del día o de la semana y luego te lo guardo.",
+        },
+      ]);
+      return true;
+    }
+
+    const bloques = extraerBloquesDesdeMensajePlan(ultimoMensajePlan.mensaje, cursos);
+    if (!bloques.length) {
+      anexarMensajesPlanificacion([
+        { tipo: "user", mensaje: texto },
+        {
+          tipo: "ai",
+          mensaje:
+            "Leí el mensaje anterior, pero no pude convertirlo en bloques válidos para el planner. Si quieres, te armo otro plan con formato listo para guardarlo.",
+        },
+      ]);
+      return true;
+    }
+
+    const resultado = agregarBloquesPlanificador(bloques);
+    anexarMensajesPlanificacion([
+      { tipo: "user", mensaje: texto },
+      {
+        tipo: "ai",
+        mensaje: resultado.ok
+          ? `${resultado.mensaje}\n\nTomé el último plan del chat y lo convertí en bloques de enfoque dentro de tu planificador. Si quieres, ahora también puedo reajustarlo o crear una versión para mañana.`
+          : `${resultado.mensaje}\n\nSi quieres, te preparo una versión alternativa con otro rango horario para que sí entre en tu planner.`,
+      },
+    ]);
+    return true;
+  };
 
   const procesarMensajeCreacionTarea = (textoOriginal: string) => {
     const texto = textoOriginal.trim();
@@ -1744,6 +1940,11 @@ export default function AIAssistant() {
     event.preventDefault();
     if (asistentePensando) return;
     if (!mensaje.trim()) return;
+    if (!flujoPlanificacion.activo && !flujoCreacionTarea.activo && detectarSolicitudAplicarPlanChat(mensaje.trim())) {
+      aplicarUltimoPlanTextualAlPlanner(mensaje.trim());
+      setMensaje("");
+      return;
+    }
     if (flujoCreacionTarea.activo || detectarSolicitudCreacionTarea(mensaje.trim())) {
       procesarMensajeCreacionTarea(mensaje.trim());
       setMensaje("");
@@ -1760,6 +1961,11 @@ export default function AIAssistant() {
 
   const ejecutarAccionRapida = (texto: string) => {
     if (asistentePensando) return;
+    if (!flujoPlanificacion.activo && !flujoCreacionTarea.activo && detectarSolicitudAplicarPlanChat(texto)) {
+      aplicarUltimoPlanTextualAlPlanner(texto);
+      setMensaje("");
+      return;
+    }
     if (flujoCreacionTarea.activo || detectarSolicitudCreacionTarea(texto)) {
       procesarMensajeCreacionTarea(texto);
       setMensaje("");

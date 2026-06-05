@@ -21,6 +21,8 @@ import { Slider } from "../components/ui/slider";
 const horas = Array.from({ length: 16 }, (_, index) => index + 7);
 const ALTO_CELDA = 72;
 const ALTO_CELDA_MOVIL = 52;
+const HORAS_EDITABLES = Array.from({ length: (23 - 7) * 4 }, (_, index) => 7 + index / 4);
+const DURACIONES_EDITABLES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 function bloqueSeSolapa(
   bloques: BloquePlanificador[],
@@ -38,6 +40,21 @@ function bloqueSeSolapa(
     const finExistente = bloque.horaInicio + bloque.duracion;
     return inicio < finExistente && fin > inicioExistente;
   });
+}
+
+function formatearHoraDecimal(hora: number) {
+  const horasBase = Math.floor(hora);
+  const minutos = Math.round((hora - horasBase) * 60);
+  return `${String(horasBase).padStart(2, "0")}:${String(minutos).padStart(2, "0")}`;
+}
+
+function formatearDuracionHoras(duracion: number) {
+  const horasEnteras = Math.floor(duracion);
+  const minutos = Math.round((duracion - horasEnteras) * 60);
+  if (minutos === 0) {
+    return `${duracion}h`;
+  }
+  return `${horasEnteras > 0 ? `${horasEnteras}h ` : ""}${minutos}m`;
 }
 
 type TipoVisualBloque = BloquePlanificador["tipo"];
@@ -686,9 +703,9 @@ function EditorBloque({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {horas.map((hora) => (
+              {HORAS_EDITABLES.map((hora) => (
                 <SelectItem key={hora} value={String(hora)}>
-                  {hora}:00
+                  {formatearHoraDecimal(hora)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -703,9 +720,9 @@ function EditorBloque({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {["1", "1.5", "2", "2.5", "3"].map((duracion) => (
-                <SelectItem key={duracion} value={duracion}>
-                  {duracion}h
+              {DURACIONES_EDITABLES.map((duracion) => (
+                <SelectItem key={duracion} value={String(duracion)}>
+                  {formatearDuracionHoras(duracion)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -799,14 +816,10 @@ function CalendarioPlanificador({
             <div className={`flex items-center text-gray-500 ${compacto ? "text-[11px]" : "text-sm"}`}>{`${hora}:00`}</div>
             {Array.from({ length: 7 }, (_, diaIndex) => {
               const celdaId = `${diaIndex}-${hora}`;
-              const bloque = bloquesPlanificador.find((item) => item.dia === diaIndex && item.horaInicio === hora);
+              const bloquesCelda = bloquesPlanificador.filter(
+                (item) => item.dia === diaIndex && item.horaInicio >= hora && item.horaInicio < hora + 1,
+              );
               const activa = celdaActiva === celdaId;
-              const metaVisual = bloque ? obtenerMetaBloqueVisual(bloque) : null;
-              const colorBase = bloque ? obtenerColorValor(bloque.color) : null;
-              const superficieBloque =
-                bloque && colorBase && metaVisual
-                  ? obtenerSuperficieBloque(colorBase, metaVisual.tipoVisual)
-                  : null;
 
               return (
                 <div
@@ -839,81 +852,96 @@ function CalendarioPlanificador({
                     onSetCeldaActiva(null);
                   }}
                 >
-                  {bloque ? (
-                    <div
-                      draggable={bloque.tipo !== "class"}
-                      onDragStart={(event) => {
-                        if (bloque.tipo === "class") {
-                          event.preventDefault();
-                          onSetMensajeEdicion("Ese bloque corresponde al horario del curso. Editalo desde Mis cursos.");
-                          return;
-                        }
-                        event.dataTransfer.setData("text/plain", bloque.id);
-                        onSetBloqueArrastradoId(bloque.id);
-                      }}
-                      onDragEnd={() => {
-                        onSetBloqueArrastradoId(null);
-                        onSetCeldaActiva(null);
-                      }}
-                      onClick={() => {
-                        if (bloque.tipo === "class") {
-                          onSetMensajeEdicion("Ese bloque corresponde al horario del curso. Editalo desde Mis cursos.");
-                          return;
-                        }
-                        onEditarBloque(bloque);
-                      }}
-                      className={`absolute left-1 right-1 top-1 rounded-xl text-white shadow-md transition-all ${
-                        bloque.tipo === "class" ? "cursor-default" : "cursor-grab active:cursor-grabbing"
-                      } ${
-                        bloqueArrastradoId === bloque.id ? "scale-95 opacity-70" : "hover:-translate-y-0.5"
-                      } ${bloqueRecienteId === bloque.id ? "ring-4 ring-blue-200/80 animate-pulse" : ""} ${
-                        compacto ? "p-2" : "p-3"
-                      }`}
-                      style={{
-                        background: superficieBloque?.background,
-                        border: `1px solid ${superficieBloque?.borderColor ?? "rgba(255,255,255,0.18)"}`,
-                        boxShadow: superficieBloque?.boxShadow,
-                        height: `${Math.max(compacto ? 42 : 60, bloque.duracion * altoCelda - 8)}px`,
-                        zIndex: 10,
-                      }}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div
-                          className={`inline-flex items-center gap-1 rounded-full bg-white/15 font-semibold uppercase tracking-[0.14em] text-white/90 ${
-                            compacto ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[9px]"
-                          }`}
-                        >
-                          {metaVisual ? <metaVisual.Icono className={`${compacto ? "h-2.5 w-2.5" : "h-3 w-3"}`} /> : null}
-                          {metaVisual?.etiqueta ?? bloque.tipo}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {bloque.tipo === "class" ? (
-                            <span
-                              className={`rounded-full bg-white/15 px-1.5 py-0.5 font-medium text-white/85 ${
-                                compacto ? "text-[8px]" : "text-[9px]"
-                              }`}
-                            >
-                              Fijo
-                            </span>
-                          ) : (
-                            <GripVertical className={`${compacto ? "h-3 w-3" : "h-3.5 w-3.5"} shrink-0 text-white/80`} />
-                          )}
-                        </div>
-                      </div>
-                      <div className={`mt-2 break-words font-semibold leading-tight ${compacto ? "text-[10px]" : "text-sm"}`}>
-                        {metaVisual?.titulo ?? bloque.titulo}
-                      </div>
-                      <div className={`mt-1.5 flex items-center justify-between gap-2 text-white/85 ${compacto ? "text-[9px]" : "text-xs"}`}>
-                        <Clock className={`${compacto ? "h-2.5 w-2.5" : "h-3 w-3"}`} />
-                        <span className="mr-auto">{bloque.duracion}h</span>
-                        {!compacto ? <span className="truncate text-white/75">{metaVisual?.detalle}</span> : null}
-                      </div>
-                      {!compacto ? (
-                        <div className="mt-1 text-[10px] font-medium text-white/70">
-                          {metaVisual?.descripcion}
-                        </div>
-                      ) : null}
-                    </div>
+                  {bloquesCelda.length > 0 ? (
+                    <>
+                      {bloquesCelda.map((bloque, indice) => {
+                        const metaVisual = obtenerMetaBloqueVisual(bloque);
+                        const colorBase = obtenerColorValor(bloque.color);
+                        const superficieBloque = obtenerSuperficieBloque(colorBase, metaVisual.tipoVisual);
+                        const offsetMinutos = (bloque.horaInicio - hora) * 60;
+
+                        return (
+                          <div
+                            key={bloque.id}
+                            draggable={bloque.tipo !== "class"}
+                            onDragStart={(event) => {
+                              if (bloque.tipo === "class") {
+                                event.preventDefault();
+                                onSetMensajeEdicion("Ese bloque corresponde al horario del curso. Editalo desde Mis cursos.");
+                                return;
+                              }
+                              event.dataTransfer.setData("text/plain", bloque.id);
+                              onSetBloqueArrastradoId(bloque.id);
+                            }}
+                            onDragEnd={() => {
+                              onSetBloqueArrastradoId(null);
+                              onSetCeldaActiva(null);
+                            }}
+                            onClick={() => {
+                              if (bloque.tipo === "class") {
+                                onSetMensajeEdicion("Ese bloque corresponde al horario del curso. Editalo desde Mis cursos.");
+                                return;
+                              }
+                              onEditarBloque(bloque);
+                            }}
+                            className={`absolute left-1 right-1 rounded-xl text-white shadow-md transition-all ${
+                              bloque.tipo === "class" ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+                            } ${
+                              bloqueArrastradoId === bloque.id ? "scale-95 opacity-70" : "hover:-translate-y-0.5"
+                            } ${bloqueRecienteId === bloque.id ? "ring-4 ring-blue-200/80 animate-pulse" : ""} ${
+                              compacto ? "p-2" : "p-3"
+                            }`}
+                            style={{
+                              top: `${4 + (offsetMinutos / 60) * altoCelda}px`,
+                              background: superficieBloque.background,
+                              border: `1px solid ${superficieBloque.borderColor}`,
+                              boxShadow: superficieBloque.boxShadow,
+                              height: `${Math.max(compacto ? 38 : 54, bloque.duracion * altoCelda - 8)}px`,
+                              zIndex: 10 + indice,
+                            }}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div
+                                className={`inline-flex items-center gap-1 rounded-full bg-white/15 font-semibold uppercase tracking-[0.14em] text-white/90 ${
+                                  compacto ? "px-1.5 py-1 text-[8px]" : "px-2 py-1 text-[9px]"
+                                }`}
+                              >
+                                <metaVisual.Icono className={`${compacto ? "h-2.5 w-2.5" : "h-3 w-3"}`} />
+                                {metaVisual.etiqueta}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {bloque.tipo === "class" ? (
+                                  <span
+                                    className={`rounded-full bg-white/15 px-1.5 py-0.5 font-medium text-white/85 ${
+                                      compacto ? "text-[8px]" : "text-[9px]"
+                                    }`}
+                                  >
+                                    Fijo
+                                  </span>
+                                ) : (
+                                  <GripVertical className={`${compacto ? "h-3 w-3" : "h-3.5 w-3.5"} shrink-0 text-white/80`} />
+                                )}
+                              </div>
+                            </div>
+                            <div className={`mt-2 break-words font-semibold leading-tight ${compacto ? "text-[10px]" : "text-sm"}`}>
+                              {metaVisual.titulo}
+                            </div>
+                            <div className={`mt-1.5 flex items-center justify-between gap-2 text-white/85 ${compacto ? "text-[9px]" : "text-xs"}`}>
+                              <Clock className={`${compacto ? "h-2.5 w-2.5" : "h-3 w-3"}`} />
+                              <span className="mr-auto">
+                                {formatearHoraDecimal(bloque.horaInicio)} - {formatearHoraDecimal(bloque.horaInicio + bloque.duracion)}
+                              </span>
+                              {!compacto ? <span className="truncate text-white/75">{formatearDuracionHoras(bloque.duracion)}</span> : null}
+                            </div>
+                            {!compacto ? (
+                              <div className="mt-1 text-[10px] font-medium text-white/70">
+                                {metaVisual.descripcion}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </>
                   ) : (
                     <div
                       className={`flex h-full items-center justify-center rounded-xl border border-dashed border-transparent text-gray-400 ${
