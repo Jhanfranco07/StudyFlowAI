@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, ClipboardList, Plus, Sparkles } from "lucide-react";
-import { canUseLongProjects, obtenerMensajeRecomendacionPlan } from "../data/plan-rules";
+import { CheckCircle2, LockKeyhole, Plus } from "lucide-react";
+import { Link } from "react-router";
+import { canUseLongProjects } from "../data/plan-rules";
 import { formatearFechaCorta, useStudyFlow, type FaseProyectoLargo, type TipoProyectoLargo } from "../data/studyflow-store";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -49,11 +50,39 @@ export default function Projects() {
   });
   const [pasos, setPasos] = useState<Record<string, string>>({});
   const puedeUsar = canUseLongProjects(usuarioActual);
-  const recomendacion = obtenerMensajeRecomendacionPlan(usuarioActual);
   const proyectoEnRiesgo = useMemo(
     () => proyectosLargos.find((proyecto) => proyecto.progreso < 45),
     [proyectosLargos],
   );
+
+  if (!puedeUsar) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Tesis y proyectos</h1>
+          <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
+            Organiza tesis, investigaciones y proyectos largos por fases y avances.
+          </p>
+        </div>
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="flex flex-col gap-4 p-6 text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-3">
+              <LockKeyhole className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">Funcion exclusiva de Premium Plus</p>
+                <p className="mt-1 text-sm">
+                  Premium Plus habilita tesis, proyectos largos, fases, pasos y seguimiento de avances.
+                </p>
+              </div>
+            </div>
+            <Button asChild>
+              <Link to="/app/settings">Ver Premium Plus</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -120,24 +149,6 @@ export default function Projects() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {recomendacion ? (
-        <Card className="border-blue-100 bg-blue-50">
-          <CardContent className="flex gap-3 p-5 text-blue-900">
-            <Sparkles className="mt-0.5 h-5 w-5" />
-            <p className="text-sm">{recomendacion}</p>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {!puedeUsar ? (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="flex gap-3 p-5 text-amber-800">
-            <AlertTriangle className="mt-0.5 h-5 w-5" />
-            <p className="text-sm">Vista previa disponible. Para gestionar proyectos largos con pasos y seguimiento, usa Premium o Premium Plus.</p>
-          </CardContent>
-        </Card>
-      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="border-none shadow-lg">

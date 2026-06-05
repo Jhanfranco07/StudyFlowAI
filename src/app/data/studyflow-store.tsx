@@ -17,7 +17,7 @@ import {
 } from "date-fns";
 import { api, type ContextoApi, type ProyectoGrupalApi, type ProyectoLargoApi, type TareaApi, type UsuarioApi } from "./api";
 import { construirBloquesClaseDesdeCurso } from "./course-schedule";
-import { normalizarPlan, normalizarTipoPerfil } from "./plan-rules";
+import { PLANES, canUseLongProjects, normalizarPlan, normalizarTipoPerfil } from "./plan-rules";
 import type {
   AlcancePlanificacion,
   AlertaInteligente,
@@ -2719,7 +2719,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         api.eliminarExamen(examenId).catch(() => {});
       },
       agregarProyectoLargo: (proyecto) => {
-        if (!usuarioId) return;
+        if (!usuarioId || !canUseLongProjects(estado.usuarioActual)) return;
 
         const proyectoLocal: ProyectoLargo = {
           id: crearId("long-project"),
@@ -2745,6 +2745,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }).catch(() => {});
       },
       actualizarProyectoLargo: (proyectoId, cambios) => {
+        if (!canUseLongProjects(estado.usuarioActual)) return;
         setEstado((actual) => ({
           ...actual,
           proyectosLargos: actual.proyectosLargos.map((proyecto) =>
@@ -2754,6 +2755,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         api.actualizarProyectoLargo(proyectoId, cambios).catch(() => {});
       },
       eliminarProyectoLargo: (proyectoId) => {
+        if (!canUseLongProjects(estado.usuarioActual)) return;
         setEstado((actual) => ({
           ...actual,
           proyectosLargos: actual.proyectosLargos.filter((proyecto) => proyecto.id !== proyectoId),
@@ -2761,6 +2763,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         api.eliminarProyectoLargo(proyectoId).catch(() => {});
       },
       agregarPasoProyectoLargo: (proyectoId, titulo, fase = "investigacion") => {
+        if (!canUseLongProjects(estado.usuarioActual)) return;
         const pasoLocal = { id: crearId("long-step"), proyectoId, titulo, fase, completado: false };
         setEstado((actual) => ({
           ...actual,
@@ -2780,6 +2783,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }).catch(() => {});
       },
       alternarPasoProyectoLargo: (pasoId, completado) => {
+        if (!canUseLongProjects(estado.usuarioActual)) return;
         setEstado((actual) => ({
           ...actual,
           proyectosLargos: actual.proyectosLargos.map((proyecto) =>
@@ -2795,6 +2799,10 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
       },
       agregarProyectoGrupal: (proyecto) => {
         if (!usuarioId) return;
+        const plan = PLANES[normalizarPlan(estado.usuarioActual?.plan)];
+        if (plan.limiteProyectosGrupales !== "ilimitado" && estado.proyectosGrupales.length >= plan.limiteProyectosGrupales) {
+          return;
+        }
 
         const proyectoLocal: ProyectoGrupal = {
           id: crearId("team-project"),

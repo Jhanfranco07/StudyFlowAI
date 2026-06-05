@@ -65,6 +65,8 @@ export default function TeamProjects() {
   const [nuevaTarea, setNuevaTarea] = useState<Record<string, string>>({});
   const puedeAvanzado = canUseTeamProjectsAdvanced(usuarioActual);
   const plan = PLANES[usuarioActual?.plan ?? "gratis"];
+  const puedeCrearProyecto =
+    plan.limiteProyectosGrupales === "ilimitado" || proyectosGrupales.length < plan.limiteProyectosGrupales;
 
   const resumen = useMemo(() => {
     const totalTareas = proyectosGrupales.reduce((sum, proyecto) => sum + proyecto.tareas.length, 0);
@@ -93,7 +95,7 @@ export default function TeamProjects() {
         </div>
         <Dialog open={dialogoAbierto} onOpenChange={setDialogoAbierto}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600" disabled={!puedeCrearProyecto}>
               <Plus className="mr-2 h-4 w-4" />
               Crear trabajo grupal
             </Button>
@@ -133,7 +135,7 @@ export default function TeamProjects() {
               </div>
               <Button
                 className="w-full"
-                disabled={!form.nombre || !form.fechaLimite}
+                disabled={!form.nombre || !form.fechaLimite || !puedeCrearProyecto}
                 onClick={() => {
                   agregarProyectoGrupal({ ...form, cursoId: form.cursoId === "none" ? undefined : form.cursoId });
                   setForm({ nombre: "", descripcion: "", cursoId: "none", fechaLimite: "" });
@@ -156,7 +158,9 @@ export default function TeamProjects() {
       {!puedeAvanzado ? (
         <Card className="border-amber-200 bg-amber-50">
           <CardContent className="p-5 text-sm text-amber-800">
-            En Gratis puedes validar 1 proyecto grupal activo. Premium habilita mas tableros, responsables y seguimiento avanzado.
+            {puedeCrearProyecto
+              ? "En Gratis puedes validar 1 proyecto grupal activo. Premium habilita mas tableros, responsables y seguimiento avanzado."
+              : "Alcanzaste el limite de 1 proyecto grupal del plan Gratis. Premium habilita proyectos ilimitados y seguimiento avanzado."}
           </CardContent>
         </Card>
       ) : null}

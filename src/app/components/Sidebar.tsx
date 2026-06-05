@@ -15,6 +15,7 @@ import {
   Sparkles,
   TrendingUp,
 } from "lucide-react";
+import { canUseLongProjects } from "../data/plan-rules";
 import { obtenerAlertasInteligentes, useStudyFlow } from "../data/studyflow-store";
 import { Button } from "./ui/button";
 
@@ -22,7 +23,7 @@ const menuItems = [
   { path: "/app", label: "Dashboard", icon: LayoutDashboard },
   { path: "/app/courses", label: "Mis cursos", icon: BookOpen },
   { path: "/app/tasks", label: "Tareas", icon: CheckSquare },
-  { path: "/app/projects", label: "Tesis y proyectos", icon: Milestone },
+  { path: "/app/projects", label: "Tesis y proyectos", icon: Milestone, premiumPlus: true },
   { path: "/app/team-projects", label: "Trabajos grupales", icon: FolderKanban },
   { path: "/app/exams", label: "Exámenes", icon: ClipboardList },
   { path: "/app/planner", label: "Planificador", icon: Calendar },
@@ -42,6 +43,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
     [bloquesPlanificador, cursos, examenes, tareas],
   );
   const totalNotificacionesVisibles = Math.max(cantidadNoLeidas, alertasInteligentes.length);
+  const menuItemsVisibles = menuItems.filter((item) => !item.premiumPlus || canUseLongProjects(usuarioActual));
 
   return (
     <aside
@@ -63,7 +65,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
       </div>
 
       <nav className="space-y-1 px-3">
-        {menuItems.map((item) => {
+        {menuItemsVisibles.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
 

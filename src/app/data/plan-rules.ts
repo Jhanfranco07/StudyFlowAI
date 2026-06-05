@@ -141,7 +141,7 @@ export function canUseTeamProjectsAdvanced(usuario: Pick<PerfilUsuario, "plan"> 
 }
 
 export function canUseLongProjects(usuario: Pick<PerfilUsuario, "plan" | "tipoPerfil"> | null | undefined) {
-  return isPremium(usuario) || isPostgradProfile(usuario);
+  return isPremiumPlus(usuario);
 }
 
 export function obtenerTiposBloqueDisponibles(usuario: Pick<PerfilUsuario, "plan"> | null | undefined) {
