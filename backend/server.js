@@ -14,6 +14,7 @@ import {
   verificarContrasena,
 } from "./auth-utils.js";
 import {
+  construirCorreoBienvenida,
   construirCorreoNotificacion,
   construirCorreoVerificacion,
   enviarCorreo,
@@ -75,6 +76,16 @@ async function enviarVerificacionCorreo({ estudianteId, nombres, correo }) {
     asunto: correoVerificacion.asunto,
     html: correoVerificacion.html,
     texto: correoVerificacion.texto,
+  });
+}
+
+async function enviarBienvenidaCorreo({ nombres, correo }) {
+  const correoBienvenida = construirCorreoBienvenida({ nombres });
+  return enviarCorreo({
+    para: correo,
+    asunto: correoBienvenida.asunto,
+    html: correoBienvenida.html,
+    texto: correoBienvenida.texto,
   });
 }
 
@@ -1891,6 +1902,12 @@ app.post("/api/auth/google", async (request, response) => {
       [nombres, apellidos, correo, googleSub, crearHashTemporalGoogle()],
     );
 
+    try {
+      await enviarBienvenidaCorreo({ nombres, correo });
+    } catch (error) {
+      console.warn("[email] No se pudo enviar bienvenida de Google:", error.message);
+    }
+
     response.status(201).json({
       usuario: mapearUsuario(resultado.rows[0]),
       requiereCompletarPerfilAcademico: true,
@@ -2072,6 +2089,15 @@ app.post("/api/auth/verify-email", async (request, response) => {
     }
 
     const usuarioActualizado = resultado.rows[0];
+    try {
+      await enviarBienvenidaCorreo({
+        nombres: usuarioActualizado.nombres,
+        correo: usuarioActualizado.correo,
+      });
+    } catch (error) {
+      console.warn("[email] No se pudo enviar bienvenida:", error.message);
+    }
+
     if (request.body?.notificaciones?.correo === true && !usuarioActualizado.emailVerificado) {
       try {
         await enviarVerificacionCorreo({

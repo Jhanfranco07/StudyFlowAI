@@ -66,6 +66,23 @@ export function construirCorreoVerificacion({ nombres, token }) {
   };
 }
 
+export function construirCorreoBienvenida({ nombres }) {
+  const nombre = escapeHtml(nombres || "estudiante");
+
+  return {
+    asunto: "Bienvenido a StudyFlow AI",
+    texto: `Hola ${nombres || "estudiante"}, tu cuenta de StudyFlow AI ya esta lista. Puedes empezar a organizar tus cursos, tareas, examenes y horarios.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #0f172a;">
+        <h1 style="font-size: 24px; margin-bottom: 12px;">Bienvenido a StudyFlow AI</h1>
+        <p>Hola ${nombre}, tu cuenta ya esta lista.</p>
+        <p>Puedes empezar a organizar tus cursos, tareas, examenes y horarios desde tu panel academico.</p>
+        <p style="font-size: 13px; color: #64748b; margin-top: 28px;">Puedes controlar las notificaciones por correo desde Configuracion.</p>
+      </div>
+    `,
+  };
+}
+
 export function construirCorreoNotificacion({ titulo, mensaje }) {
   const tituloSeguro = escapeHtml(titulo);
   const mensajeSeguro = escapeHtml(mensaje);
