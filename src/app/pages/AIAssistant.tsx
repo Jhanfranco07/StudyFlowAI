@@ -48,7 +48,7 @@ import {
   type PanelVisualPlanificacion,
   type TonoPlanificadorLocal,
 } from "./ai-assistant-planning-types";
-import { isPremium } from "../data/plan-rules";
+import { isPremium, isPremiumPlus } from "../data/plan-rules";
 
 type FlujoCreacionTareaChat = {
   activo: boolean;
@@ -188,13 +188,29 @@ function detectarSolicitudPlanificacionHorario(mensaje: string) {
   const texto = normalizarTextoPlanificacion(mensaje);
   return [
     "planifica mi horario",
+    "planifica mi dia",
     "planifica mi semana",
+    "organiza mi dia",
     "organiza mi semana",
     "organiza mi horario",
     "reorganiza mi horario",
+    "ponlo en mi planificador",
+    "ponlo en el planificador",
+    "agregalo a mi planificador",
+    "agregalo al planificador",
+    "ponlo en mi planner",
+    "agregalo a mi planner",
     "acomoda mi semana",
     "ordena mi semana",
   ].some((termino) => texto.includes(termino));
+}
+
+function obtenerMensajeCapacidadPlanificador(usuario: Parameters<typeof isPremiumPlus>[0]) {
+  if (isPremiumPlus(usuario)) {
+    return "Con tu plan actual sí puedo aplicarlo en tu planner y, si hace falta, también reacomodarlo luego considerando trabajo, traslado, tesis y micro-sesiones.";
+  }
+
+  return "Con tu plan actual sí puedo aplicarlo en tu planner. Si luego quieres replanificación automática considerando trabajo, traslado, tesis o fatiga, eso ya corresponde a Premium Plus.";
 }
 
 function detectarSolicitudCreacionTarea(mensaje: string) {
@@ -1675,7 +1691,8 @@ export default function AIAssistant() {
             `- Días libres: ${obtenerResumenDiasBloqueados(flujoPlanificacion.diasBloqueados)}\n` +
             `- Franja preferida: ${jornada}\n` +
             `- Límite diario actual: ${usuarioActual?.horasEstudioDiarias ?? 2}h\n` +
-            `- Horas ubicadas en la vista previa: ${preview.horasProgramadas}h de ${preview.totalHorasSolicitadas ?? preview.horasProgramadas}h\n\n` +
+            `- Horas ubicadas en la vista previa: ${preview.horasProgramadas}h de ${preview.totalHorasSolicitadas ?? preview.horasProgramadas}h\n` +
+            `- Aplicación según tu plan: ${obtenerMensajeCapacidadPlanificador(usuarioActual)}\n\n` +
             `${lineasPreview.length ? `${lineasPreview.join("\n")}\n\n` : ""}` +
             "Abajo te dejo la vista previa visual. Si te convence, responde `si` para aplicarla; si no, dime `no` y la dejamos en pausa.",
         },
@@ -1713,7 +1730,9 @@ export default function AIAssistant() {
         {
           tipo: "ai",
           mensaje:
-            `${resultado.mensaje}\n\n${resultado.resumen.length ? resultado.resumen.join("\n") : "No hubo cambios adicionales para mostrar."}`,
+            `${resultado.mensaje}\n\n` +
+            `${resultado.resumen.length ? resultado.resumen.join("\n") : "No hubo cambios adicionales para mostrar."}\n\n` +
+            `${obtenerMensajeCapacidadPlanificador(usuarioActual)}`,
         },
       ]);
       setPrevisualizacionPlanificacion(null);
