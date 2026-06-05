@@ -147,8 +147,8 @@ const planes = [
     precio: "S/ 9.99",
     caracteristicas: [
       "Cursos ilimitados.",
-      "Planificador inteligente.",
-      "Planificación adaptada al horario laboral.",
+      "Planificador inteligente académico.",
+      "Bloques manuales de trabajo, traslado y tiempo personal.",
       "Asistente IA con más consultas.",
       "Agente IA que crea tareas desde el chat.",
       "Prioridades automáticas.",
@@ -165,9 +165,10 @@ const planes = [
     precio: "S/ 14.99",
     caracteristicas: [
       "Todo lo del Premium.",
+      "Planificación automática adaptada al horario laboral y académico.",
       "Micro-sesiones de estudio.",
       "Seguimiento de tesis y proyectos largos.",
-      "Dashboard avanzado de productividad.",
+      "Dashboard combinado de trabajo y estudio.",
       "Trabajo colaborativo avanzado.",
     ],
     destino: "/register?plan=premium_plus",

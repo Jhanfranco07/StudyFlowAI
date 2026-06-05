@@ -19,19 +19,19 @@ export const PLANES: Record<
   },
   estudiante: {
     etiqueta: "Premium",
-    descripcion: "Planificacion inteligente para cursos, trabajo y colaboracion.",
+    descripcion: "Planificacion academica con bloques manuales de trabajo, traslado y tiempo personal.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
   premium: {
     etiqueta: "Premium",
-    descripcion: "Planificacion inteligente para cursos, trabajo y colaboracion.",
+    descripcion: "Planificacion academica con bloques manuales de trabajo, traslado y tiempo personal.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
   premium_plus: {
     etiqueta: "Premium Plus",
-    descripcion: "Productividad avanzada para tesis, proyectos largos y posgrado.",
+    descripcion: "Planificacion automatica de trabajo y estudio, micro-sesiones, tesis y proyectos largos.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
