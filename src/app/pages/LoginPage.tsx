@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { GraduationCap, Lock, Mail } from "lucide-react";
+import { ArrowLeft, GraduationCap, Lock, Mail } from "lucide-react";
 import { useStudyFlow } from "../data/studyflow-store";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -147,7 +147,13 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center bg-white p-8">
+      <div className="relative flex items-center justify-center bg-white p-8">
+        <Button asChild variant="ghost" className="absolute left-4 top-4 sm:left-6 sm:top-6">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4" />
+            Volver al inicio
+          </Link>
+        </Button>
         <div className="w-full max-w-md">
           <Link to="/" className="mb-8 flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600">
