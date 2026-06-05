@@ -21,6 +21,7 @@ import {
 import {
   generarRespuestaProveedorIA,
   hayClienteIAConfigurado,
+  obtenerModeloIAActivo,
   obtenerProveedorIAActivo,
 } from "./ai-service.js";
 import {
@@ -393,7 +394,7 @@ function construirResumenSistema({ mensaje, contexto }) {
   if (!curso) {
     const prioridades = construirPrioridadesSistema(contexto, 3);
     return (
-      "Puedo darte un resumen rápido aunque Groq se esté demorando. Ahora mismo tu mejor enfoque es este: " +
+      "Puedo darte un resumen rápido aunque el proveedor de IA se esté demorando. Ahora mismo tu mejor enfoque es este: " +
       `${prioridades.length ? unirListaNatural(prioridades) : "ordenar tus temas y pendientes principales"}.`
     );
   }
@@ -418,13 +419,13 @@ function construirExplicacionSistema({ mensaje, contexto }) {
 
   if (curso && temaPrincipal) {
     return (
-      `Te doy una explicación corta y segura mientras Groq vuelve: en ${curso.nombre}, un buen modo de entender ${temaPrincipal} es dividirlo en cuatro partes: qué es, para qué sirve, cuál es el procedimiento o lógica principal y qué error suele cometerse al aplicarlo. ` +
+      `Te doy una explicación corta y segura mientras vuelve el proveedor de IA: en ${curso.nombre}, un buen modo de entender ${temaPrincipal} es dividirlo en cuatro partes: qué es, para qué sirve, cuál es el procedimiento o lógica principal y qué error suele cometerse al aplicarlo. ` +
       `Si estudias ${temaPrincipal} con ese esquema y luego lo conectas con ${temas[1] ?? "un ejemplo práctico"}, ya tendrás una base bastante sólida.`
     );
   }
 
   return (
-    "Te doy una explicación útil mientras Groq se demora: para entender cualquier tema rápido, sepáralo en definición, objetivo, pasos clave, ejemplo y errores comunes. " +
+    "Te doy una explicación útil mientras el proveedor de IA se demora: para entender cualquier tema rápido, sepáralo en definición, objetivo, pasos clave, ejemplo y errores comunes. " +
     "Si me dices el curso o el tema exacto, te lo bajo a un formato mucho más concreto."
   );
 }
@@ -434,7 +435,7 @@ function construirRespuestaGeneralSistema({ contexto, detalleError }) {
   const cursos = obtenerCursosUnicos(contexto).slice(0, 3).map((curso) => curso.nombre);
 
   return (
-    `Groq se está demorando más de lo normal${detalleError ? ` (${detalleError})` : ""}, pero no te dejo sin respuesta. ` +
+    `El proveedor de IA se está demorando más de lo normal${detalleError ? ` (${detalleError})` : ""}, pero no te dejo sin respuesta. ` +
     `${prioridades.length ? `Ahora mismo tus focos más claros son ${unirListaNatural(prioridades)}. ` : ""}` +
     `${cursos.length ? `También puedo ayudarte con ${unirListaNatural(cursos)}. ` : ""}` +
     "Si quieres, te organizo la semana, te resumo un tema, te doy prioridades o te hago preguntas de práctica."
@@ -496,20 +497,20 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
 
   if (textoIncluyeAlguno(texto, ["hola", "buenas", "buen dia", "buenas tardes", "buenas noches", "que tal"])) {
     return (
-      `Hola. Mientras Groq se demora, sigo viendo tu panel real: ${tareasActivas.length} tareas activas y ${examenesProximos.length} exámenes próximos. ` +
+      `Hola. Mientras el proveedor de IA se demora, sigo viendo tu panel real: ${tareasActivas.length} tareas activas y ${examenesProximos.length} exámenes próximos. ` +
       `${cursoRelevante ? `Tu curso más prioritario ahora parece ser ${cursoRelevante.nombre}. ` : ""}` +
       "Si quieres, te organizo el día o te preparo práctica."
     );
   }
 
   if (textoIncluyeAlguno(texto, ["gracias", "muchas gracias", "thanks"])) {
-    return "De nada. Aunque Groq se demore, igual puedo seguir apoyándote con tareas, prioridades, planes de estudio y preguntas de práctica.";
+    return "De nada. Aunque el proveedor de IA se demore, igual puedo seguir apoyándote con tareas, prioridades, planes de estudio y preguntas de práctica.";
   }
 
   if (textoIncluyeAlguno(texto, ["quien eres", "que puedes hacer", "en que me puedes ayudar", "ayudame"])) {
     const cursos = obtenerCursosUnicos(contexto).slice(0, 4).map((curso) => curso.nombre);
     return (
-      "Soy StudyFlow AI. Incluso sin Groq en este momento puedo ayudarte a revisar tareas, exámenes, prioridades, organizar tu semana, proponerte preguntas de práctica y darte resúmenes rápidos de enfoque. " +
+      "Soy StudyFlow AI. Incluso sin el proveedor de IA en este momento puedo ayudarte a revisar tareas, exámenes, prioridades, organizar tu semana, proponerte preguntas de práctica y darte resúmenes rápidos de enfoque. " +
       `${cursos.length ? `Ahora mismo tengo contexto de ${unirListaNatural(cursos)}.` : ""}`
     );
   }
@@ -520,7 +521,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
       obtenerCursosUnicos(contexto)[0];
 
     if (!curso) {
-      return "Groq se está demorando un poco. Mientras tanto, dime de qué curso o tema quieres las preguntas de práctica y te las preparo al toque.";
+      return "El proveedor de IA se está demorando un poco. Mientras tanto, dime de qué curso o tema quieres las preguntas de práctica y te las preparo al toque.";
     }
 
     const temas = deduplicarPorClave(
@@ -548,7 +549,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
           ];
 
     return (
-      `Groq se está demorando más de lo normal, pero avancemos igual. Aquí van preguntas de práctica de ${curso.nombre}:\n\n` +
+      `El proveedor de IA se está demorando más de lo normal, pero avancemos igual. Aquí van preguntas de práctica de ${curso.nombre}:\n\n` +
       `${preguntas.join("\n")}\n\n` +
       "Si quieres, en el siguiente mensaje te corrijo tus respuestas o te subo la dificultad."
     );
@@ -556,7 +557,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
 
   if (textoIncluyeAlguno(texto, ["organiza", "organizar", "plan", "planifica", "planificar", "semana", "hoy", "horario"])) {
     return (
-      "Groq se está demorando un poco, así que te dejo un plan rápido basado en tu contexto real:\n\n" +
+      "El proveedor de IA se está demorando un poco, así que te dejo un plan rápido basado en tu contexto real:\n\n" +
       construirPlanEstudioSistema(contexto)
     );
   }
@@ -574,7 +575,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
       )
       .join("; ");
 
-    return `Groq se está demorando un poco. Mientras tanto, tu panel muestra ${tareasActivas.length} tareas activas: ${tareasPendientes.length} pendientes vigentes y ${tareasAtrasadas.length} atrasadas. Lo más cercano ahora es: ${resumen}.`;
+    return `El proveedor de IA se está demorando un poco. Mientras tanto, tu panel muestra ${tareasActivas.length} tareas activas: ${tareasPendientes.length} pendientes vigentes y ${tareasAtrasadas.length} atrasadas. Lo más cercano ahora es: ${resumen}.`;
   }
 
   if (texto.includes("examen")) {
@@ -590,7 +591,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
       )
       .join("; ");
 
-    return `Groq se está demorando un poco. Mientras tanto, tus exámenes más cercanos son: ${resumen}.`;
+    return `El proveedor de IA se está demorando un poco. Mientras tanto, tus exámenes más cercanos son: ${resumen}.`;
   }
 
   if (textoIncluyeAlguno(texto, ["curso", "cursos", "materia", "materias"])) {
@@ -625,7 +626,7 @@ function construirRespuestaSistemaRapida({ mensaje, contexto, detalleError }) {
 
 function crearPromesaTimeout(ms) {
   return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error("Groq tardo demasiado en responder.")), ms);
+    setTimeout(() => reject(new Error(`${obtenerProveedorIAActivo()} tardo demasiado en responder.`)), ms);
   });
 }
 
@@ -683,7 +684,7 @@ async function generarRespuestaAsistente({ mensaje, contexto, timeoutMs = 18000 
       crearPromesaTimeout(timeoutMs),
     ]);
   } catch (error) {
-    console.error("Fallback StudyFlow por demora o error de Groq:", error);
+    console.error(`Fallback StudyFlow por demora o error de ${obtenerProveedorIAActivo()}:`, error);
     return {
       mensaje: construirRespuestaSistemaRapida({
         mensaje,
@@ -2128,16 +2129,22 @@ app.post("/api/auth/resend-verification", async (request, response) => {
 });
 
 app.get("/api/salud", async (_request, response) => {
+  const ia = {
+    proveedor: obtenerProveedorIAActivo(),
+    modelo: obtenerModeloIAActivo(),
+    configurada: hayClienteIAConfigurado(),
+  };
+
   if (!pool) {
-    response.json({ ok: true, baseDeDatos: "no-configurada" });
+    response.json({ ok: true, baseDeDatos: "no-configurada", ia });
     return;
   }
 
   try {
     await pool.query("select 1");
-    response.json({ ok: true, baseDeDatos: "conectada" });
+    response.json({ ok: true, baseDeDatos: "conectada", ia });
   } catch (error) {
-    response.status(500).json({ ok: false, baseDeDatos: "error", mensaje: error.message });
+    response.status(500).json({ ok: false, baseDeDatos: "error", ia, mensaje: error.message });
   }
 });
 

@@ -2974,7 +2974,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         const mensajeTemporal: MensajeChat = {
           id: crearId("chat"),
           tipo: "ai",
-          mensaje: "Pensando tu respuesta con Groq...",
+          mensaje: "Pensando tu respuesta con IA...",
           hora: formatearHoraChat(),
         };
 
@@ -3003,7 +3003,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
               const detalle =
                 error instanceof Error
                   ? error.message.replace(/^"|"$/g, "")
-                  : "No se pudo conectar con Groq.";
+                  : "No se pudo conectar con el proveedor de IA.";
 
               setEstado((actual) => ({
                 ...actual,
@@ -3013,7 +3013,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
                   {
                     id: crearId("chat"),
                     tipo: "ai",
-                    mensaje: `No pude obtener respuesta real de Groq.\n\nDetalle: ${detalle}`,
+                    mensaje: `No pude obtener respuesta del proveedor de IA.\n\nDetalle: ${detalle}`,
                     hora: formatearHoraChat(),
                   },
                 ],
@@ -3028,7 +3028,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
               {
                 id: crearId("chat"),
                 tipo: "ai",
-                mensaje: "Inicia sesión para usar el asistente con Groq.",
+                mensaje: "Inicia sesión para usar el asistente IA.",
                 hora: formatearHoraChat(),
               },
             ],

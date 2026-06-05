@@ -79,9 +79,8 @@ Muchos estudiantes gestionan sus estudios en varias plataformas al mismo tiempo:
 
 ### 🤖 IA
 <p>
-  <img src="https://img.shields.io/badge/Groq-111827?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/OpenAI%20Compatible%20API-412991?style=for-the-badge" />
   <img src="https://img.shields.io/badge/OpenAI%20SDK-111827?style=for-the-badge&logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/Groq-Opcional-111827?style=for-the-badge" />
 </p>
 
 ### 🚀 Deploy y herramientas
@@ -101,7 +100,7 @@ El proyecto sigue una arquitectura fullstack moderna:
 - **Frontend:** interfaz dinámica y responsive construida con React, TypeScript y Vite
 - **Backend:** API con Node.js y Express para manejar lógica de negocio y endpoints
 - **Base de datos:** PostgreSQL con scripts SQL propios para esquema y datos iniciales
-- **IA:** integración con Groq mediante API compatible con OpenAI
+- **IA:** integración principal con OpenAI y soporte opcional para Groq
 - **Autenticación:** login tradicional y autenticación con Google
 - **Deploy:** frontend preparado para despliegue en Vercel
 
@@ -151,6 +150,10 @@ Usa `.env.example` como referencia:
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/studyflow_ai
 PORT=4000
+AI_PROVIDER=openai
+OPENAI_API_KEY=pega_aqui_tu_openai_api_key
+OPENAI_MODEL=gpt-4.1-mini
+# Opcional si AI_PROVIDER=groq
 GROQ_API_KEY=pega_aqui_tu_groq_api_key
 GROQ_MODEL=llama-3.1-8b-instant
 GOOGLE_CLIENT_ID=pega_aqui_tu_google_client_id_web

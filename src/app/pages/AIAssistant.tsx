@@ -658,7 +658,9 @@ export default function AIAssistant() {
   const tareasAtrasadas = tareas.filter(esTareaAtrasada);
   const bloquesEstudio = bloquesPlanificador.filter((bloque) => bloque.tipo === "study");
   const asistentePensando = mensajesChat.some(
-    (item) => item.tipo === "ai" && item.mensaje === "Pensando tu respuesta con Groq...",
+    (item) =>
+      item.tipo === "ai" &&
+      (item.mensaje === "Pensando tu respuesta con IA..." || item.mensaje === "Pensando tu respuesta con Groq..."),
   );
   const fuenteVisible = flujoPlanificacion.activo ? "sistema" : fuenteAsistente;
   const tonoPlanificador = resolverTonoPlanificadorLocal(usuarioActual?.tonoAsistente);
@@ -1574,7 +1576,7 @@ export default function AIAssistant() {
         </div>
         <Badge
           className={`w-fit px-3 py-2 ${
-            fuenteVisible === "groq"
+            fuenteVisible === "groq" || fuenteVisible === "openai"
               ? "bg-emerald-50 text-emerald-700"
               : fuenteVisible === "sistema"
                 ? "bg-blue-50 text-blue-700"
@@ -1587,10 +1589,12 @@ export default function AIAssistant() {
             ? "Planificador conversacional activo"
             : fuenteVisible === "groq"
             ? "Respuestas reales con Groq"
+            : fuenteVisible === "openai"
+              ? "Respuestas reales con OpenAI"
             : fuenteVisible === "sistema"
               ? "Respuesta directa del sistema"
             : fuenteVisible === "error"
-              ? "Groq no respondió"
+              ? "El proveedor de IA no respondió"
               : "Esperando respuesta del asistente"}
         </Badge>
       </div>
@@ -1606,7 +1610,7 @@ export default function AIAssistant() {
                 <div className="min-w-0">
                   <CardTitle className="text-lg sm:text-xl">Asistente académico inteligente</CardTitle>
                   <p className="text-xs text-gray-600 sm:text-sm">
-                    Usa tu contexto académico real, consulta Groq y ahora también puede replanificar tu horario.
+                    Usa tu contexto académico real, consulta IA y también puede replanificar tu horario.
                   </p>
                 </div>
               </div>
@@ -1835,7 +1839,7 @@ export default function AIAssistant() {
                 <p>No hay exámenes próximos cargados por ahora.</p>
               )}
               <p>El asistente toma como referencia tareas, exámenes, cursos y bloques de estudio ya guardados.</p>
-              <p>Si Groq falla o la clave no es válida, verás un error explícito en lugar de una respuesta simulada.</p>
+              <p>Si el proveedor de IA falla o la clave no es válida, verás un error explícito en lugar de una respuesta simulada.</p>
             </CardContent>
           </Card>
         </div>
