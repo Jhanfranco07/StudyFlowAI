@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, LockKeyhole, Plus } from "lucide-react";
 import { Link } from "react-router";
-import { canUseLongProjects } from "../data/plan-rules";
+import { TIPOS_PERFIL, canUseLongProjects, isPremiumPlus } from "../data/plan-rules";
 import { formatearFechaCorta, useStudyFlow, type FaseProyectoLargo, type TipoProyectoLargo } from "../data/studyflow-store";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
@@ -50,6 +50,7 @@ export default function Projects() {
   });
   const [pasos, setPasos] = useState<Record<string, string>>({});
   const puedeUsar = canUseLongProjects(usuarioActual);
+  const premiumPlusActivo = isPremiumPlus(usuarioActual);
   const proyectoEnRiesgo = useMemo(
     () => proyectosLargos.find((proyecto) => proyecto.progreso < 45),
     [proyectosLargos],
@@ -88,6 +89,10 @@ export default function Projects() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge className="bg-slate-100 text-slate-700">{premiumPlusActivo ? "Premium Plus" : "Plan actual"}</Badge>
+            {usuarioActual?.tipoPerfil ? <Badge className="bg-blue-50 text-blue-700">{TIPOS_PERFIL[usuarioActual.tipoPerfil]}</Badge> : null}
+          </div>
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Tesis y proyectos</h1>
           <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
             Divide entregables largos en fases, pasos pequeños y micro-avances sostenibles.
@@ -149,6 +154,15 @@ export default function Projects() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {proyectosLargos.length === 0 ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardContent className="space-y-3 p-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Todavía no tienes proyectos largos activos.</p>
+            <p>Crea una tesis, investigación o entregable grande para que el sistema detecte estancamiento y te sugiera el siguiente paso.</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="border-none shadow-lg">

@@ -18,6 +18,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Textarea } from "../components/ui/textarea";
+import { PLANES, TIPOS_PERFIL } from "../data/plan-rules";
 
 type FormularioTarea = {
   titulo: string;
@@ -45,6 +46,7 @@ function crearFormularioVacio(cursoId: string): FormularioTarea {
 
 export default function Tasks() {
   const {
+    usuarioActual,
     tareas,
     cursos,
     agregarTarea,
@@ -68,6 +70,7 @@ export default function Tasks() {
   const [horasCalendarioDeseadas, setHorasCalendarioDeseadas] = useState("2");
   const [mensajeCalendario, setMensajeCalendario] = useState("");
   const [tareaProgramada, setTareaProgramada] = useState(false);
+  const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 
   useEffect(() => {
     if (!tareaDestacadaId) return;
@@ -141,6 +144,10 @@ export default function Tasks() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge className="bg-slate-100 text-slate-700">{planActual.etiqueta}</Badge>
+            {usuarioActual?.tipoPerfil ? <Badge className="bg-blue-50 text-blue-700">{TIPOS_PERFIL[usuarioActual.tipoPerfil]}</Badge> : null}
+          </div>
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Tareas</h1>
           <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
             Organiza pendientes, prioriza entregas y registra progreso real.
@@ -221,6 +228,15 @@ export default function Tasks() {
           </SelectContent>
         </Select>
       </div>
+
+      {tareas.length === 0 ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardContent className="space-y-3 p-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Todavía no tienes tareas registradas.</p>
+            <p>Crea tus primeras entregas para que el sistema pueda priorizar, estimar carga y sugerirte bloques de estudio de verdad útiles.</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card className="border-none bg-gradient-to-br from-red-50 to-orange-50 shadow-lg">
         <CardHeader>

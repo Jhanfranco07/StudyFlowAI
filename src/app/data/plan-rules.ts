@@ -156,6 +156,10 @@ export function canUseLongProjects(usuario: Pick<PerfilUsuario, "plan" | "tipoPe
   return isPremiumPlus(usuario);
 }
 
+export function canUseWorkStudyAutoplanning(usuario: Pick<PerfilUsuario, "plan"> | null | undefined) {
+  return isPremiumPlus(usuario);
+}
+
 export function obtenerTiposBloqueDisponibles(usuario: Pick<PerfilUsuario, "plan"> | null | undefined) {
   if (isPremiumPlus(usuario)) return BLOQUES_PREMIUM_PLUS;
   if (isPremium(usuario)) return BLOQUES_PREMIUM;

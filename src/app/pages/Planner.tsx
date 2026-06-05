@@ -7,7 +7,7 @@ import {
   useStudyFlow,
   type BloquePlanificador,
 } from "../data/studyflow-store";
-import { ETIQUETAS_BLOQUE, obtenerTiposBloqueDisponibles } from "../data/plan-rules";
+import { ETIQUETAS_BLOQUE, canUseWorkStudyAutoplanning, isPremiumPlus, obtenerTiposBloqueDisponibles } from "../data/plan-rules";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -279,6 +279,9 @@ export default function Planner() {
   const [bloqueRecienteId, setBloqueRecienteId] = useState<string | null>(null);
   const [mensajeEdicion, setMensajeEdicion] = useState("");
   const tiposBloqueDisponibles = obtenerTiposBloqueDisponibles(usuarioActual);
+  const premiumPlusActivo = isPremiumPlus(usuarioActual);
+  const puedeAutoplanificarTrabajoEstudio = canUseWorkStudyAutoplanning(usuarioActual);
+  const noHayBloques = bloquesPlanificador.length === 0;
 
   const examenProximo = examenes.slice().sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
   const cursoProximo = cursos.find((curso) => curso.id === examenProximo?.cursoId);
@@ -305,7 +308,9 @@ export default function Planner() {
         <div>
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Planificador inteligente</h1>
           <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
-            Organiza tu semana con bloques útiles, visuales y priorizados por contexto académico.
+            {premiumPlusActivo
+              ? "Organiza tu semana con adaptación automática entre estudio, trabajo, traslado y proyectos largos."
+              : "Organiza tu semana con bloques útiles, visuales y priorizados por contexto académico."}
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
@@ -342,6 +347,31 @@ export default function Planner() {
           </Button>
         </div>
       </div>
+
+      {!puedeAutoplanificarTrabajoEstudio ? (
+        <Card className="border-amber-200 bg-amber-50 shadow-none">
+          <CardContent className="flex flex-col gap-3 p-5 text-sm text-amber-900 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="font-semibold">Tu plan actual mantiene bloques manuales.</p>
+              <p className="mt-1">
+                Premium Plus añade replanificación automática usando trabajo, traslado, tesis y disponibilidad real para no saturarte.
+              </p>
+            </div>
+            <Button variant="outline" className="bg-white" onClick={() => navigate("/app/settings")}>
+              Ver Premium Plus
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {noHayBloques ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardContent className="space-y-3 p-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Tu planner todavía no tiene bloques útiles.</p>
+            <p>Agrega clases, bloques de estudio o tiempo de trabajo para que la IA empiece a proponer una semana más realista.</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid min-w-0 gap-6 xl:grid-cols-4">
         <Card className="min-w-0 overflow-hidden border-none shadow-lg xl:col-span-1">

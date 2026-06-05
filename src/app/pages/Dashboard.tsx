@@ -99,8 +99,30 @@ export default function Dashboard() {
   const horasTrabajoSemana = bloquesPlanificador
     .filter((bloque) => bloque.tipo === "work")
     .reduce((sum, bloque) => sum + bloque.duracion, 0);
+  const horasTrasladoSemana = bloquesPlanificador
+    .filter((bloque) => bloque.tipo === "commute")
+    .reduce((sum, bloque) => sum + bloque.duracion, 0);
   const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
   const estadoInicial = cursos.length === 0 && tareas.length === 0 && examenes.length === 0;
+  const horasLibresEstimadas = Math.max(0, objetivoSemanal - totalHoras - horasTrabajoSemana * 0.35 - horasTrasladoSemana * 0.5);
+  const indiceFatiga = Math.min(
+    100,
+    Math.round(
+      horasTrabajoSemana * 2.2 +
+      horasTrasladoSemana * 3 +
+      Math.max(0, 8 - (usuarioActual?.horasSueno ?? 8)) * 7 +
+      tareasAtrasadas.length * 8,
+    ),
+  );
+  const riesgoSaturacion =
+    indiceFatiga >= 70 ? "alto" : indiceFatiga >= 40 ? "medio" : "controlado";
+  const proyectosEstancados = proyectosLargos.filter((proyecto) => obtenerDiasRestantes(proyecto.ultimoAvance) <= -4);
+  const recomendacionBalance =
+    premiumPlusActivo && proyectoEnRiesgo
+      ? `Esta semana conviene bajar carga en ${cursoMasComprometido?.curso.nombre ?? "el curso más exigente"} y sostener micro-avances en ${proyectoEnRiesgo.titulo}.`
+      : premiumPlusActivo
+        ? `Mantén bloques cortos para ${cursoMasComprometido?.curso.nombre ?? "tu curso principal"} y deja margen para trabajo y traslado.`
+        : "";
   const checklistInicio = [
     "Registra tus primeros cursos para activar el radar de riesgo.",
     "Carga tareas o exámenes para que la IA priorice por fecha real.",
@@ -168,18 +190,19 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl bg-white/10 p-4">
-              <p className="text-sm text-white/70">Tiempo disponible esta semana</p>
-              <p className="mt-2 text-2xl font-bold">{Math.max(1, objetivoSemanal - totalHoras)}h</p>
+              <p className="text-sm text-white/70">Horas libres estimadas</p>
+              <p className="mt-2 text-2xl font-bold">{horasLibresEstimadas.toFixed(1)}h</p>
             </div>
             <div className="rounded-2xl bg-white/10 p-4">
               <p className="text-sm text-white/70">Carga laboral registrada</p>
               <p className="mt-2 text-2xl font-bold">{horasTrabajoSemana}h</p>
             </div>
             <div className="rounded-2xl bg-white/10 p-4">
-              <p className="text-sm text-white/70">Micro-sesion sugerida</p>
-              <p className="mt-2 text-2xl font-bold">{microSesion.duracion} min</p>
+              <p className="text-sm text-white/70">Fatiga estimada</p>
+              <p className="mt-2 text-2xl font-bold">{indiceFatiga}/100</p>
+              <p className="mt-2 text-xs text-white/65">Riesgo {riesgoSaturacion}</p>
               <Button size="sm" variant="secondary" className="mt-3" onClick={() => agendarMicroSesion()} disabled={!canUseMicroSessions(usuarioActual)}>
-                Agendar
+                {canUseMicroSessions(usuarioActual) ? "Agendar micro-sesion" : "Ver Premium Plus"}
               </Button>
             </div>
             <div className="rounded-2xl bg-white/10 p-4">
@@ -221,6 +244,17 @@ export default function Dashboard() {
               <p className="mt-2 text-sm text-slate-600">
                 {microSesion.mensaje || "Cuando la semana se aprieta, el sistema prioriza bloques cortos para no perder tracción."}
               </p>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-white p-4 md:col-span-3">
+              <p className="text-sm font-semibold text-slate-900">Recomendación automática</p>
+              <p className="mt-2 text-sm text-slate-600">
+                {recomendacionBalance || "Activa más contexto laboral y de proyectos para recibir recomendaciones cruzadas entre trabajo y estudio."}
+              </p>
+              {proyectosEstancados.length > 0 ? (
+                <div className="mt-3 rounded-2xl bg-amber-50 px-3 py-3 text-sm text-amber-900">
+                  Hay {proyectosEstancados.length} proyecto{proyectosEstancados.length === 1 ? "" : "s"} con señales de estancamiento por falta de avance reciente.
+                </div>
+              ) : null}
             </div>
           </CardContent>
         </Card>

@@ -17,7 +17,14 @@ import {
 } from "date-fns";
 import { api, type ContextoApi, type ProyectoGrupalApi, type ProyectoLargoApi, type TareaApi, type UsuarioApi } from "./api";
 import { construirBloquesClaseDesdeCurso } from "./course-schedule";
-import { PLANES, canUseLongProjects, normalizarPlan, normalizarTipoPerfil } from "./plan-rules";
+import {
+  PLANES,
+  canUseLongProjects,
+  canUseWorkStudyAutoplanning,
+  normalizarPlan,
+  normalizarTipoPerfil,
+  obtenerUpsellPremiumPlus,
+} from "./plan-rules";
 import type {
   AlcancePlanificacion,
   AlertaInteligente,
@@ -590,6 +597,24 @@ function calcularHorasRepasoExamen(examen: Examen) {
   return 1;
 }
 
+function requiereAutoplanificacionTrabajoEstudio(estado: EstadoStudyFlow) {
+  const tieneBloquesAvanzados = estado.bloquesPlanificador.some((bloque) =>
+    bloque.tipo === "work" ||
+    bloque.tipo === "commute" ||
+    bloque.tipo === "personal" ||
+    bloque.tipo === "project_thesis" ||
+    bloque.tipo === "micro_session" ||
+    bloque.tipo === "academic_meeting" ||
+    bloque.tipo === "research",
+  );
+
+  return (
+    tieneBloquesAvanzados ||
+    estado.usuarioActual?.tieneTesisProyecto ||
+    Boolean(estado.usuarioActual?.horarioLaboral?.trim())
+  );
+}
+
 function limpiarBloquesEstudioSegunAlcance(
   bloques: BloquePlanificador[],
   alcance: AlcancePlanificacion,
@@ -1000,6 +1025,27 @@ function resolverPlanificacionInteligenteBase({
   jornada: JornadaPlanificacion;
   modoTodo?: ModoPlanificacionTodo;
 }): ResultadoPlanificacionInteligente {
+  if (
+    requiereAutoplanificacionTrabajoEstudio(estado) &&
+    !canUseWorkStudyAutoplanning(estado.usuarioActual)
+  ) {
+    return {
+      ok: false,
+      mensaje:
+        `${obtenerUpsellPremiumPlus("La replanificación automática con trabajo, traslado, tesis y fatiga")}\n\n` +
+        "Con tu plan actual sí puedes registrar esos bloques manualmente, pero la adaptación automática completa queda reservada para Premium Plus.",
+      resumen: [
+        "Premium mantiene bloques manuales y organización académica base.",
+        "Premium Plus reorganiza alrededor de trabajo, traslado, proyectos largos y micro-sesiones.",
+      ],
+      bloquesCreados: 0,
+      horasProgramadas: 0,
+      totalHorasSolicitadas: 0,
+      bloquesPrevistos: [],
+      bloquesFinales: [],
+    };
+  }
+
   const diasRestringidos = [...new Set(diasBloqueados)].filter((dia) => dia >= 0 && dia <= 6);
   if (diasRestringidos.length >= 7) {
     return {

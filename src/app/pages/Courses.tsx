@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { BookOpen, Calendar, Plus, Search, User } from "lucide-react";
 import CourseScheduleEditor from "../components/CourseScheduleEditor";
 import { useStudyFlow } from "../data/studyflow-store";
+import { PLANES, TIPOS_PERFIL } from "../data/plan-rules";
 import {
   crearFilaHorarioCurso,
   formatearHorarioCurso,
@@ -83,11 +84,16 @@ export default function Courses() {
       }),
     [busqueda, cursos, filtroSemestre],
   );
+  const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Badge className="bg-slate-100 text-slate-700">{planActual.etiqueta}</Badge>
+            {usuarioActual?.tipoPerfil ? <Badge className="bg-blue-50 text-blue-700">{TIPOS_PERFIL[usuarioActual.tipoPerfil]}</Badge> : null}
+          </div>
           <h1 className="mb-2 text-2xl font-bold sm:text-3xl">Mis cursos</h1>
           <p className="max-w-2xl text-sm text-gray-600 sm:text-base">
             Gestiona materias, actividades y ritmo de avance por curso.
@@ -165,6 +171,15 @@ export default function Courses() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {cursosFiltrados.length === 0 ? (
+        <Card className="border-dashed border-slate-300 shadow-none">
+          <CardContent className="space-y-3 p-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-900">Todavía no tienes cursos registrados.</p>
+            <p>Empieza por tus materias principales. Apenas las cargues, StudyFlow podrá conectar tareas, exámenes y prioridades reales.</p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex flex-col gap-4 lg:flex-row">
         <div className="relative flex-1">

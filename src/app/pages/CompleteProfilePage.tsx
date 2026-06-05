@@ -18,6 +18,22 @@ function limpiarCampoInicial(valor: string) {
   return valor.trim().toLowerCase() === "por definir" ? "" : valor;
 }
 
+function describirSiguientePasoPerfil(tipoPerfil: PerfilUsuario["tipoPerfil"]) {
+  if (tipoPerfil === "posgrado" || tipoPerfil === "segunda_especialidad") {
+    return "Vamos a adaptar el panel para que puedas sostener tesis, trabajo y entregables largos sin perder ritmo.";
+  }
+
+  if (tipoPerfil === "profesional_estudia" || tipoPerfil === "diplomado_maestria") {
+    return "Con estos datos podremos acomodar mejor trabajo, disponibilidad real y micro-sesiones de estudio.";
+  }
+
+  if (tipoPerfil === "instituto") {
+    return "Con esto podremos darte una vista más práctica de cursos, tareas y evaluaciones.";
+  }
+
+  return "Con esto podremos personalizar tus cursos, tareas, exámenes y recomendaciones diarias.";
+}
+
 export default function CompleteProfilePage() {
   const navigate = useNavigate();
   const {
@@ -111,6 +127,7 @@ export default function CompleteProfilePage() {
           <p className="mb-3 text-gray-600">
             Tu cuenta de Google ya quedo conectada. Solo nos faltan estos datos para personalizar tu panel.
           </p>
+          <p className="mb-3 text-sm text-gray-500">{describirSiguientePasoPerfil(formData.tipoPerfil)}</p>
           <p className="mb-8 text-sm text-gray-500">{usuarioActual.correo}</p>
           <p className="mb-6 text-xs text-gray-400">
             Si el backend esta despertando en Render, este paso puede tardar cerca de 1 minuto.

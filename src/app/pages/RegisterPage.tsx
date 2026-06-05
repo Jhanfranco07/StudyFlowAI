@@ -25,6 +25,22 @@ type FormularioRegistro = {
   tipoPerfil: TipoPerfilUsuario;
 };
 
+function describirOnboardingPerfil(tipoPerfil: TipoPerfilUsuario) {
+  if (tipoPerfil === "posgrado" || tipoPerfil === "segunda_especialidad") {
+    return "Te prepararemos una experiencia pensada para trabajo, proyectos largos y estudio sostenido.";
+  }
+
+  if (tipoPerfil === "profesional_estudia" || tipoPerfil === "diplomado_maestria") {
+    return "Vamos a priorizar disponibilidad real, micro-sesiones y equilibrio entre trabajo y estudio.";
+  }
+
+  if (tipoPerfil === "instituto") {
+    return "Te ayudaremos a organizar cursos, entregas y evaluaciones con un ritmo más práctico y claro.";
+  }
+
+  return "Empezarás con una organización académica pensada para cursos, tareas, exámenes y progreso semanal.";
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -87,7 +103,8 @@ export default function RegisterPage() {
           </Link>
 
           <h1 className="mb-2 text-3xl font-bold">Crea tu cuenta</h1>
-          <p className="mb-8 text-gray-600">Empieza a organizar tu semestre desde hoy.</p>
+          <p className="mb-2 text-gray-600">Empieza a organizar tu semestre desde hoy.</p>
+          <p className="mb-8 text-sm text-gray-500">{describirOnboardingPerfil(formData.tipoPerfil)}</p>
 
           <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
             <p className="text-sm font-medium text-blue-700">Plan seleccionado</p>

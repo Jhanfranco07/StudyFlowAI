@@ -202,14 +202,18 @@ values
   ('20000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'Informe de laboratorio de ondas', 'Redactar resultados, analisis y conclusiones del laboratorio.', current_date + interval '6 day', 'medium', 'in-progress', 2, 55),
   ('20000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000005', 'Historias de usuario del proyecto', 'Definir backlog inicial, criterios de aceptacion y prioridades.', current_date + interval '5 day', 'high', 'pending', 3.5, 10),
   ('20000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Mapa conceptual de normalizacion', 'Resumir 1FN, 2FN, 3FN y casos practicos.', current_date + interval '1 day', 'medium', 'completed', 1, 100),
-  ('20000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Testing de controladores', 'Escribir pruebas unitarias para los endpoints principales.', current_date + interval '7 day', 'low', 'pending', 2, 0);
+  ('20000000-0000-0000-0000-000000000007', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Testing de controladores', 'Escribir pruebas unitarias para los endpoints principales.', current_date + interval '7 day', 'low', 'pending', 2, 0),
+  ('20000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011', 'Entregar avance del marco teorico', 'Cerrar una version corta pero presentable del marco teorico para revision.', current_date + interval '2 day', 'high', 'in-progress', 2.5, 35),
+  ('20000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000012', 'Actualizar matriz de riesgos', 'Cruzar riesgos del proyecto con restricciones de tiempo laboral.', current_date + interval '5 day', 'medium', 'pending', 1.5, 5),
+  ('20000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000021', 'Preparar dashboard ejecutivo', 'Cerrar primera lectura del dashboard y narrativa del caso.', current_date + interval '3 day', 'high', 'pending', 2, 20);
 
 insert into examenes (id, estudiante_id, curso_id, titulo, fecha_examen, hora_examen, temas, preparacion)
 values
   ('25000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Examen parcial 2', current_date + interval '3 day', '08:00', array['Normalizacion', 'SQL avanzado', 'Transacciones'], 75),
   ('25000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000002', 'Evaluacion de Programacion', current_date + interval '5 day', '10:00', array['POO', 'API REST', 'Testing'], 60),
   ('25000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'Practica calificada', current_date + interval '8 day', '14:00', array['Integrales', 'Series', 'Aplicaciones'], 45),
-  ('25000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'Control de Fisica II', current_date + interval '11 day', '08:00', array['Electromagnetismo', 'Optica', 'Ondas'], 30);
+  ('25000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000004', 'Control de Fisica II', current_date + interval '11 day', '08:00', array['Electromagnetismo', 'Optica', 'Ondas'], 30),
+  ('25000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000012', 'Sustentacion de riesgos', current_date + interval '6 day', '19:00', array['Mitigacion', 'Riesgos criticos', 'Seguimiento'], 55);
 
 insert into bloques_planificador (id, estudiante_id, curso_id, dia_semana, hora_inicio, horas_duracion, titulo, tipo_bloque, color)
 values
@@ -229,6 +233,9 @@ values
   ('30000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011', 1, 20, 0.33, 'Micro-sesion: revisar marco teorico', 'micro_session', 'teal'),
   ('30000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011', 5, 9, 3, 'Seminario de Tesis', 'class', 'teal'),
   ('30000000-0000-0000-0000-000000000024', '00000000-0000-0000-0000-000000000002', null, 4, 18, 1, 'Traslado', 'commute', 'gray'),
+  ('30000000-0000-0000-0000-000000000025', '00000000-0000-0000-0000-000000000002', null, 2, 21, 1, 'Tiempo personal', 'personal', 'stone'),
+  ('30000000-0000-0000-0000-000000000026', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011', 3, 20, 1.5, 'Bloque tesis: redactar hallazgos', 'project_thesis', 'teal'),
+  ('30000000-0000-0000-0000-000000000027', '00000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000011', 6, 10, 1.5, 'Investigacion bibliografica', 'research', 'emerald'),
   ('30000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000003', null, 2, 9, 7, 'Trabajo por turnos', 'work', 'slate'),
   ('30000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000021', 2, 21, 0.5, 'Micro-sesion: limpiar dataset', 'micro_session', 'blue');
 
@@ -277,6 +284,7 @@ values
   ('72000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', 'Investigar riesgos principales', '71000000-0000-0000-0000-000000000002', current_date + interval '3 day', 'en_proceso', 50),
   ('72000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', 'Armar diapositivas', '71000000-0000-0000-0000-000000000003', current_date + interval '5 day', 'pendiente', 10),
   ('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000002', 'Limpiar datos base', '71000000-0000-0000-0000-000000000004', current_date + interval '2 day', 'en_revision', 80),
-  ('72000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000002', 'Preparar historia del caso', '71000000-0000-0000-0000-000000000005', current_date + interval '4 day', 'pendiente', 20);
+  ('72000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000002', 'Preparar historia del caso', '71000000-0000-0000-0000-000000000005', current_date + interval '4 day', 'pendiente', 20),
+  ('72000000-0000-0000-0000-000000000005', '70000000-0000-0000-0000-000000000001', 'Definir mensaje final de la sustentacion', null, current_date + interval '6 day', 'pendiente', 0);
 
 commit;
