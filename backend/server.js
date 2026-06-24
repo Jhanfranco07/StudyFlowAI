@@ -1320,7 +1320,7 @@ async function obtenerAdministradorSolicitante(request, response) {
     return null;
   }
 
-  if (usuario.rol !== "admin") {
+  if (!["admin", "superadmin"].includes(usuario.rol)) {
     response.status(403).json({ mensaje: "Acceso denegado. Se requiere rol administrador." });
     return null;
   }
@@ -1328,7 +1328,7 @@ async function obtenerAdministradorSolicitante(request, response) {
   return usuario;
 }
 
-const ROLES_ADMIN_PERMITIDOS = ["estudiante", "admin"];
+const ROLES_ADMIN_PERMITIDOS = ["estudiante", "admin", "superadmin"];
 const PLANES_ADMIN_PERMITIDOS = ["gratis", "estudiante", "premium", "premium_plus"];
 
 function normalizarRolAdmin(valor) {
@@ -1338,6 +1338,8 @@ function normalizarRolAdmin(valor) {
     usuario: "estudiante",
     admin: "admin",
     administrador: "admin",
+    superadmin: "superadmin",
+    super_administrador: "superadmin",
   };
   return equivalencias[rol] || rol;
 }
@@ -1353,6 +1355,16 @@ function normalizarPlanAdmin(valor) {
     plus: "premium_plus",
   };
   return equivalencias[plan] || plan;
+}
+
+async function registrarAuditoriaAdmin(cliente, { adminId, targetUserId, action, oldValue, newValue }) {
+  await cliente.query(
+    `
+    insert into admin_audit_logs (admin_id, target_user_id, action, old_value, new_value)
+    values ($1, $2, $3, $4, $5)
+    `,
+    [adminId, targetUserId, action, oldValue, newValue],
+  );
 }
 
 async function contarTabla(nombreTabla) {
@@ -1698,9 +1710,9 @@ async function asegurarColumnasCompatibilidad() {
   if (!pool) return;
 
   await pool.query("alter table estudiantes add column if not exists rol text not null default 'estudiante'");
-  await pool.query("update estudiantes set rol = 'estudiante' where rol is null or rol not in ('estudiante', 'admin')");
+  await pool.query("update estudiantes set rol = 'estudiante' where rol is null or rol not in ('estudiante', 'admin', 'superadmin')");
   await pool.query("alter table estudiantes drop constraint if exists estudiantes_rol_check");
-  await pool.query("alter table estudiantes add constraint estudiantes_rol_check check (rol in ('estudiante', 'admin'))");
+  await pool.query("alter table estudiantes add constraint estudiantes_rol_check check (rol in ('estudiante', 'admin', 'superadmin'))");
   await pool.query("alter table estudiantes add column if not exists google_sub text");
   await pool.query("alter table estudiantes add column if not exists tipo_perfil text not null default 'universitario'");
   await pool.query("alter table estudiantes drop constraint if exists estudiantes_tipo_perfil_check");
@@ -1723,6 +1735,17 @@ async function asegurarColumnasCompatibilidad() {
   await pool.query(
     "create unique index if not exists estudiantes_google_sub_unique on estudiantes (google_sub) where google_sub is not null",
   );
+  await pool.query(`
+    create table if not exists admin_audit_logs (
+      id uuid primary key default gen_random_uuid(),
+      admin_id uuid references estudiantes(id) on delete set null,
+      target_user_id uuid references estudiantes(id) on delete set null,
+      action text not null,
+      old_value text,
+      new_value text,
+      created_at timestamptz not null default now()
+    )
+  `);
   await pool.query(
     "alter table bloques_planificador drop constraint if exists bloques_planificador_tipo_bloque_check",
   );
@@ -2563,7 +2586,7 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
 
   const rol = normalizarRolAdmin(request.body?.rol);
   if (!ROLES_ADMIN_PERMITIDOS.includes(rol)) {
-    response.status(400).json({ mensaje: "Rol no valido. Usa estudiante o admin." });
+    response.status(400).json({ mensaje: "Rol no valido." });
     return;
   }
 
@@ -2571,8 +2594,8 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
     const admin = await obtenerAdministradorSolicitante(request, response);
     if (!admin) return;
 
-    if (admin.id === request.params.userId && rol !== "admin") {
-      response.status(403).json({ mensaje: "No puedes quitarte tu propio rol de administrador." });
+    if (admin.rol !== "superadmin") {
+      response.status(403).json({ mensaje: "Solo un superadmin puede cambiar roles." });
       return;
     }
 
@@ -2592,11 +2615,19 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
         return;
       }
 
-      if (usuarioObjetivo.rows[0].rol === "admin" && rol === "estudiante") {
-        const totalAdmins = await cliente.query("select count(*)::int as total from estudiantes where rol = 'admin'");
-        if ((totalAdmins.rows[0]?.total ?? 0) <= 1) {
+      const rolActual = usuarioObjetivo.rows[0].rol;
+
+      if (admin.id === request.params.userId && rolActual === "superadmin" && rol !== "superadmin") {
+        await cliente.query("rollback");
+        response.status(403).json({ mensaje: "No puedes quitarte tu propio rol de superadmin." });
+        return;
+      }
+
+      if (rolActual === "superadmin" && rol !== "superadmin") {
+        const totalSuperadmins = await cliente.query("select count(*)::int as total from estudiantes where rol = 'superadmin'");
+        if ((totalSuperadmins.rows[0]?.total ?? 0) <= 1) {
           await cliente.query("rollback");
-          response.status(400).json({ mensaje: "Debe existir al menos un administrador en el sistema." });
+          response.status(400).json({ mensaje: "Debe existir al menos un superadmin en el sistema." });
           return;
         }
       }
@@ -2617,6 +2648,13 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
         return;
       }
 
+      await registrarAuditoriaAdmin(cliente, {
+        adminId: admin.id,
+        targetUserId: request.params.userId,
+        action: "change_role",
+        oldValue: rolActual,
+        newValue: rol,
+      });
       await cliente.query("commit");
 
       const usuario = resultado.rows[0];
@@ -2646,7 +2684,7 @@ app.patch("/api/admin/users/:userId/plan", async (request, response) => {
 
   const plan = normalizarPlanAdmin(request.body?.plan);
   if (!PLANES_ADMIN_PERMITIDOS.includes(plan)) {
-    response.status(400).json({ mensaje: "Plan no valido. Usa gratis, estudiante, premium o premium_plus." });
+    response.status(400).json({ mensaje: "Plan no valido." });
     return;
   }
 
@@ -2654,31 +2692,70 @@ app.patch("/api/admin/users/:userId/plan", async (request, response) => {
     const admin = await obtenerAdministradorSolicitante(request, response);
     if (!admin) return;
 
-    const resultado = await pool.query(
-      `
-      update estudiantes
-      set plan = $1
-      where id = $2
-      returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
-      `,
-      [plan, request.params.userId],
-    );
+    const cliente = await pool.connect();
 
-    if (!resultado.rows[0]) {
-      response.status(404).json({ mensaje: "Usuario no encontrado." });
-      return;
+    try {
+      await cliente.query("begin");
+
+      const usuarioObjetivo = await cliente.query(
+        "select id, rol, plan from estudiantes where id = $1 limit 1",
+        [request.params.userId],
+      );
+
+      const objetivo = usuarioObjetivo.rows[0];
+      if (!objetivo) {
+        await cliente.query("rollback");
+        response.status(404).json({ mensaje: "Usuario no encontrado." });
+        return;
+      }
+
+      if (objetivo.rol === "superadmin" || (admin.rol === "admin" && objetivo.rol !== "estudiante")) {
+        await cliente.query("rollback");
+        response.status(403).json({ mensaje: "No tienes permisos para modificar este usuario." });
+        return;
+      }
+
+      const resultado = await cliente.query(
+        `
+        update estudiantes
+        set plan = $1
+        where id = $2
+        returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
+        `,
+        [plan, request.params.userId],
+      );
+
+      if (!resultado.rows[0]) {
+        await cliente.query("rollback");
+        response.status(404).json({ mensaje: "Usuario no encontrado." });
+        return;
+      }
+
+      await registrarAuditoriaAdmin(cliente, {
+        adminId: admin.id,
+        targetUserId: request.params.userId,
+        action: "change_plan",
+        oldValue: objetivo.plan,
+        newValue: plan,
+      });
+      await cliente.query("commit");
+
+      const usuario = resultado.rows[0];
+      response.json({
+        id: usuario.id,
+        nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
+        correo: usuario.correo,
+        rol: usuario.rol,
+        emailVerificado: Boolean(usuario.emailVerificado),
+        plan: usuario.plan,
+        creadoEn: usuario.creadoEn,
+      });
+    } catch (error) {
+      await cliente.query("rollback");
+      throw error;
+    } finally {
+      cliente.release();
     }
-
-    const usuario = resultado.rows[0];
-    response.json({
-      id: usuario.id,
-      nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
-      correo: usuario.correo,
-      rol: usuario.rol,
-      emailVerificado: Boolean(usuario.emailVerificado),
-      plan: usuario.plan,
-      creadoEn: usuario.creadoEn,
-    });
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo cambiar el plan.", error: error.message });
   }

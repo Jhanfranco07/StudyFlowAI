@@ -6,7 +6,7 @@ create table if not exists estudiantes (
   apellidos text not null,
   correo text not null unique,
   google_sub text,
-  rol text not null default 'estudiante' check (rol in ('estudiante', 'admin')),
+  rol text not null default 'estudiante' check (rol in ('estudiante', 'admin', 'superadmin')),
   hash_contrasena text not null,
   universidad text not null,
   carrera text not null,
@@ -40,6 +40,10 @@ create table if not exists estudiantes (
 );
 
 alter table estudiantes add column if not exists plan text not null default 'gratis';
+alter table estudiantes add column if not exists rol text not null default 'estudiante';
+update estudiantes set rol = 'estudiante' where rol is null or rol not in ('estudiante', 'admin', 'superadmin');
+alter table estudiantes drop constraint if exists estudiantes_rol_check;
+alter table estudiantes add constraint estudiantes_rol_check check (rol in ('estudiante', 'admin', 'superadmin'));
 alter table estudiantes drop constraint if exists estudiantes_plan_check;
 alter table estudiantes add constraint estudiantes_plan_check check (plan in ('gratis', 'estudiante', 'premium', 'premium_plus'));
 alter table estudiantes add column if not exists tipo_perfil text not null default 'universitario';
@@ -52,6 +56,16 @@ alter table estudiantes add column if not exists tiempo_real_disponible_dia nume
 alter table estudiantes add column if not exists tono_asistente text not null default 'responsable';
 alter table estudiantes add column if not exists google_sub text;
 create unique index if not exists estudiantes_google_sub_unique on estudiantes (google_sub) where google_sub is not null;
+
+create table if not exists admin_audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  admin_id uuid references estudiantes(id) on delete set null,
+  target_user_id uuid references estudiantes(id) on delete set null,
+  action text not null,
+  old_value text,
+  new_value text,
+  created_at timestamptz not null default now()
+);
 
 alter table estudiantes add column if not exists notif_tareas boolean not null default true;
 alter table estudiantes add column if not exists notif_examenes boolean not null default true;

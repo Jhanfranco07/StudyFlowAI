@@ -2,7 +2,7 @@ export type Prioridad = "low" | "medium" | "high";
 export type EstadoTarea = "pending" | "in-progress" | "completed" | "overdue";
 export type TipoNotificacion = "urgent" | "warning" | "info" | "success";
 export type PlanUsuario = "gratis" | "estudiante" | "premium" | "premium_plus";
-export type RolUsuario = "estudiante" | "admin";
+export type RolUsuario = "estudiante" | "admin" | "superadmin";
 export type TipoPerfilUsuario =
   | "universitario"
   | "instituto"

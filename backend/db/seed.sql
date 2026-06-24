@@ -1,6 +1,7 @@
 begin;
 
 truncate table
+  admin_audit_logs,
   checklist_tarea_grupal,
   comentarios_tarea_grupal,
   tareas_grupales,
@@ -56,7 +57,7 @@ values (
   'Jhan',
   'Perez',
   'jhan.perez@universidad.edu',
-  'admin',
+  'superadmin',
   '123456',
   'Universidad Nacional de Ingenieria',
   'Ingenieria de Sistemas',

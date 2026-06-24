@@ -48,7 +48,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const menuItemsVisibles = menuItems.filter(
     (item) =>
       (!item.premiumPlus || canUseLongProjects(usuarioActual)) &&
-      (!item.adminOnly || usuarioActual?.rol === "admin"),
+      (!item.adminOnly || usuarioActual?.rol === "admin" || usuarioActual?.rol === "superadmin"),
   );
   const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 

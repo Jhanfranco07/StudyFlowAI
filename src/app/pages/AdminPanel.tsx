@@ -19,6 +19,16 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -37,7 +47,12 @@ const PLAN_OPTIONS: Array<{ value: UsuarioApi["plan"]; label: string }> = [
 const ROLE_OPTIONS: Array<{ value: AdminUserApi["rol"]; label: string }> = [
   { value: "estudiante", label: "Estudiante" },
   { value: "admin", label: "Admin" },
+  { value: "superadmin", label: "Superadmin" },
 ];
+
+type AccionPendiente =
+  | { tipo: "rol"; usuario: AdminUserApi; valorAnterior: AdminUserApi["rol"]; valorNuevo: AdminUserApi["rol"] }
+  | { tipo: "plan"; usuario: AdminUserApi; valorAnterior: UsuarioApi["plan"]; valorNuevo: UsuarioApi["plan"] };
 
 function esRolAdminValido(valor: string): valor is AdminUserApi["rol"] {
   return ROLE_OPTIONS.some((item) => item.value === valor);
@@ -68,6 +83,10 @@ function porcentaje(parte: number, total: number) {
 
 function etiquetaPlan(plan: UsuarioApi["plan"]) {
   return PLAN_OPTIONS.find((item) => item.value === plan)?.label ?? plan;
+}
+
+function etiquetaRol(rol: AdminUserApi["rol"]) {
+  return ROLE_OPTIONS.find((item) => item.value === rol)?.label ?? rol;
 }
 
 function etiquetaEstadoTarea(estado: string) {
@@ -102,10 +121,12 @@ export default function AdminPanel() {
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [accionEnCurso, setAccionEnCurso] = useState("");
+  const [accionPendiente, setAccionPendiente] = useState<AccionPendiente | null>(null);
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<AdminUserDetailApi | null>(null);
   const [cargandoDetalleId, setCargandoDetalleId] = useState("");
 
-  const esAdmin = usuarioActual?.rol === "admin";
+  const esAdmin = usuarioActual?.rol === "admin" || usuarioActual?.rol === "superadmin";
+  const esSuperadmin = usuarioActual?.rol === "superadmin";
 
   useEffect(() => {
     if (!usuarioActual?.id || !esAdmin) {
@@ -140,7 +161,8 @@ export default function AdminPanel() {
   }, [esAdmin, usuarioActual?.id]);
 
   const totalAdmins = useMemo(() => usuarios.filter((usuario) => usuario.rol === "admin").length, [usuarios]);
-  const totalEstudiantes = Math.max(usuarios.length - totalAdmins, 0);
+  const totalSuperadmins = useMemo(() => usuarios.filter((usuario) => usuario.rol === "superadmin").length, [usuarios]);
+  const totalEstudiantes = Math.max(usuarios.length - totalAdmins - totalSuperadmins, 0);
   const totalUsuarios = metricas?.totalUsuarios ?? usuarios.length;
   const totalVerificados = metricas?.totalUsuariosVerificados ?? 0;
   const totalNoVerificados = Math.max(totalUsuarios - totalVerificados, 0);
@@ -161,6 +183,13 @@ export default function AdminPanel() {
     if (!usuarioActual?.id) return;
     const metricasActualizadas = await api.obtenerMetricasAdmin(usuarioActual.id);
     setMetricas(metricasActualizadas);
+  };
+
+  const puedeCambiarPlan = (usuario: AdminUserApi) => {
+    if (!usuarioActual) return false;
+    if (usuario.rol === "superadmin") return false;
+    if (usuarioActual.rol === "superadmin") return true;
+    return usuarioActual.rol === "admin" && usuario.rol === "estudiante";
   };
 
   const actualizarUsuario = (usuarioActualizado: AdminUserApi) => {
@@ -196,15 +225,46 @@ export default function AdminPanel() {
     }
   };
 
-  const cambiarRol = async (usuario: AdminUserApi, rol: AdminUserApi["rol"]) => {
-    if (!usuarioActual?.id || usuario.rol === rol) return;
-    if (usuario.id === usuarioActual.id && rol === "estudiante") {
-      setError("No puedes quitarte tu propio rol de administrador.");
+  const solicitarCambioRol = (usuario: AdminUserApi, rol: AdminUserApi["rol"]) => {
+    if (usuario.rol === rol) return;
+    if (!esSuperadmin) {
+      setError("Solo un superadmin puede cambiar roles.");
       setMensaje("");
       return;
     }
-    if (usuario.rol === "admin" && rol === "estudiante" && totalAdmins <= 1) {
-      setError("Debe existir al menos un administrador en el sistema.");
+
+    setError("");
+    setMensaje("");
+    setAccionPendiente({ tipo: "rol", usuario, valorAnterior: usuario.rol, valorNuevo: rol });
+  };
+
+  const solicitarCambioPlan = (usuario: AdminUserApi, plan: UsuarioApi["plan"]) => {
+    if (usuario.plan === plan) return;
+    if (!puedeCambiarPlan(usuario)) {
+      setError("No tienes permisos para modificar este usuario.");
+      setMensaje("");
+      return;
+    }
+
+    setError("");
+    setMensaje("");
+    setAccionPendiente({ tipo: "plan", usuario, valorAnterior: usuario.plan, valorNuevo: plan });
+  };
+
+  const cambiarRol = async (usuario: AdminUserApi, rol: AdminUserApi["rol"]) => {
+    if (!usuarioActual?.id || usuario.rol === rol) return;
+    if (!esSuperadmin) {
+      setError("Solo un superadmin puede cambiar roles.");
+      setMensaje("");
+      return;
+    }
+    if (usuario.id === usuarioActual.id && usuario.rol === "superadmin" && rol !== "superadmin") {
+      setError("No puedes quitarte tu propio rol de superadmin.");
+      setMensaje("");
+      return;
+    }
+    if (usuario.rol === "superadmin" && rol !== "superadmin" && totalSuperadmins <= 1) {
+      setError("Debe existir al menos un superadmin en el sistema.");
       setMensaje("");
       return;
     }
@@ -227,6 +287,12 @@ export default function AdminPanel() {
 
   const cambiarPlan = async (usuario: AdminUserApi, plan: UsuarioApi["plan"]) => {
     if (!usuarioActual?.id || usuario.plan === plan) return;
+    if (!puedeCambiarPlan(usuario)) {
+      setError("No tienes permisos para modificar este usuario.");
+      setMensaje("");
+      return;
+    }
+
     setAccionEnCurso(`plan-${usuario.id}`);
     setError("");
     setMensaje("");
@@ -241,6 +307,19 @@ export default function AdminPanel() {
     } finally {
       setAccionEnCurso("");
     }
+  };
+
+  const confirmarAccionPendiente = async () => {
+    const accion = accionPendiente;
+    if (!accion) return;
+    setAccionPendiente(null);
+
+    if (accion.tipo === "rol") {
+      await cambiarRol(accion.usuario, accion.valorNuevo);
+      return;
+    }
+
+    await cambiarPlan(accion.usuario, accion.valorNuevo);
   };
 
   if (!esAdmin) {
@@ -299,9 +378,9 @@ export default function AdminPanel() {
               icon={Users}
               titulo="Usuarios"
               valor={valorMetrica(totalUsuarios)}
-              detalle={`${totalAdmins} admin / ${totalEstudiantes} estudiantes`}
-              porcentaje={porcentaje(totalAdmins, totalUsuarios)}
-              etiquetaPorcentaje="admins"
+              detalle={`${totalSuperadmins} superadmin / ${totalAdmins} admin / ${totalEstudiantes} estudiantes`}
+              porcentaje={porcentaje(totalAdmins + totalSuperadmins, totalUsuarios)}
+              etiquetaPorcentaje="con acceso admin"
             />
             <MetricaCard
               icon={CheckCircle2}
@@ -412,15 +491,16 @@ export default function AdminPanel() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {(usuariosPorRol.length ? usuariosPorRol : [
+                  { rol: "superadmin" as const, total: totalSuperadmins },
                   { rol: "admin" as const, total: totalAdmins },
                   { rol: "estudiante" as const, total: totalEstudiantes },
                 ]).map((item) => (
                   <BarraDistribucion
                     key={item.rol}
-                    etiqueta={item.rol === "admin" ? "Administradores" : "Estudiantes"}
+                    etiqueta={etiquetaRol(item.rol)}
                     valor={item.total}
                     total={totalUsuarios}
-                    color={item.rol === "admin" ? "bg-violet-600" : "bg-cyan-600"}
+                    color={item.rol === "superadmin" ? "bg-indigo-600" : item.rol === "admin" ? "bg-violet-600" : "bg-cyan-600"}
                   />
                 ))}
               </CardContent>
@@ -529,14 +609,18 @@ export default function AdminPanel() {
                     {usuarios.map((usuario) => {
                       const actualizandoRol = accionEnCurso === `rol-${usuario.id}`;
                       const actualizandoPlan = accionEnCurso === `plan-${usuario.id}`;
-                      const esAdminActual = usuario.id === usuarioActual.id && usuario.rol === "admin";
-                      const esUnicoAdmin = usuario.rol === "admin" && totalAdmins <= 1;
-                      const bloquearBajaAdmin = esAdminActual || esUnicoAdmin;
-                      const ayudaRol = esAdminActual
-                        ? "No puedes cambiar tu propio rol admin"
-                        : esUnicoAdmin
-                          ? "Debe existir al menos un administrador"
-                          : "";
+                      const esSuperadminActual = usuario.id === usuarioActual.id && usuario.rol === "superadmin";
+                      const esUnicoSuperadmin = usuario.rol === "superadmin" && totalSuperadmins <= 1;
+                      const bloquearBajaSuperadmin = esSuperadminActual || esUnicoSuperadmin;
+                      const planPermitido = puedeCambiarPlan(usuario);
+                      const ayudaRol = !esSuperadmin
+                        ? "Solo un superadmin puede cambiar roles."
+                        : esSuperadminActual
+                          ? "No puedes cambiar tu propio rol superadmin"
+                          : esUnicoSuperadmin
+                            ? "Debe existir al menos un superadmin"
+                            : "";
+                      const ayudaPlan = planPermitido ? "" : "No tienes permisos para modificar este usuario.";
 
                       return (
                         <TableRow key={usuario.id}>
@@ -546,10 +630,10 @@ export default function AdminPanel() {
                             <div className="space-y-1">
                               <Select
                                 value={usuario.rol}
-                                disabled={actualizandoRol}
+                                disabled={!esSuperadmin || actualizandoRol}
                                 onValueChange={(rol) => {
                                   if (esRolAdminValido(rol)) {
-                                    cambiarRol(usuario, rol);
+                                    solicitarCambioRol(usuario, rol);
                                   } else {
                                     setError("Rol no valido.");
                                     setMensaje("");
@@ -564,7 +648,7 @@ export default function AdminPanel() {
                                     <SelectItem
                                       key={rol.value}
                                       value={rol.value}
-                                      disabled={rol.value === "estudiante" && bloquearBajaAdmin}
+                                      disabled={rol.value !== "superadmin" && bloquearBajaSuperadmin}
                                     >
                                       {rol.label}
                                     </SelectItem>
@@ -579,10 +663,10 @@ export default function AdminPanel() {
                             <div className="space-y-1">
                               <Select
                                 value={usuario.plan}
-                                disabled={actualizandoPlan}
+                                disabled={!planPermitido || actualizandoPlan}
                                 onValueChange={(plan) => {
                                   if (esPlanValido(plan)) {
-                                    cambiarPlan(usuario, plan);
+                                    solicitarCambioPlan(usuario, plan);
                                   } else {
                                     setError("Plan no valido.");
                                     setMensaje("");
@@ -601,6 +685,7 @@ export default function AdminPanel() {
                                 </SelectContent>
                               </Select>
                               {actualizandoPlan ? <p className="text-xs text-blue-600">Actualizando plan...</p> : null}
+                              {ayudaPlan ? <p className="max-w-[170px] text-xs text-slate-500">{ayudaPlan}</p> : null}
                             </div>
                           </TableCell>
                           <TableCell>
@@ -640,9 +725,71 @@ export default function AdminPanel() {
           {usuarioSeleccionado ? (
             <DetalleUsuario usuario={usuarioSeleccionado} onCerrar={() => setUsuarioSeleccionado(null)} />
           ) : null}
+
+          <ConfirmacionAccionAdmin
+            accion={accionPendiente}
+            cargando={Boolean(accionEnCurso)}
+            onCancelar={() => setAccionPendiente(null)}
+            onConfirmar={confirmarAccionPendiente}
+          />
         </>
       )}
     </div>
+  );
+}
+
+function ConfirmacionAccionAdmin({
+  accion,
+  cargando,
+  onCancelar,
+  onConfirmar,
+}: {
+  accion: AccionPendiente | null;
+  cargando: boolean;
+  onCancelar: () => void;
+  onConfirmar: () => void;
+}) {
+  const abierto = Boolean(accion);
+  const nombre = accion?.usuario.nombre || "este usuario";
+  const esRol = accion?.tipo === "rol";
+  const accesoActual = esRol && accion.valorAnterior !== "estudiante";
+  const accesoNuevo = esRol && accion.valorNuevo !== "estudiante";
+  const advertenciaRol = esRol
+    ? accesoActual && !accesoNuevo
+      ? "Este usuario perdera acceso al panel administrativo."
+      : !accesoActual && accesoNuevo
+        ? "Este cambio le dara acceso al panel administrativo."
+        : "Este cambio modificara los permisos administrativos del usuario."
+    : "";
+
+  const titulo = esRol ? "Confirmar cambio de rol" : "Confirmar cambio de plan";
+  const descripcion = accion
+    ? esRol
+      ? `Confirmas cambiar el rol de ${nombre} de ${etiquetaRol(accion.valorAnterior)} a ${etiquetaRol(accion.valorNuevo)}?`
+      : `Confirmas cambiar el plan de ${nombre} de ${etiquetaPlan(accion.valorAnterior)} a ${etiquetaPlan(accion.valorNuevo)}?`
+    : "";
+  const detalle = esRol ? advertenciaRol : "Este cambio puede habilitar o restringir funcionalidades del sistema.";
+
+  return (
+    <AlertDialog open={abierto} onOpenChange={(open) => !open && onCancelar()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{titulo}</AlertDialogTitle>
+          <AlertDialogDescription className="space-y-2">
+            <span className="block">{descripcion}</span>
+            <span className="block">{detalle}</span>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={cargando} onClick={onCancelar}>
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction disabled={cargando} onClick={onConfirmar}>
+            {cargando ? "Actualizando..." : "Confirmar cambio"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

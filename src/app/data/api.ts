@@ -78,7 +78,7 @@ export type UsuarioApi = {
   nombres: string;
   apellidos: string;
   correo: string;
-  rol: "estudiante" | "admin";
+  rol: "estudiante" | "admin" | "superadmin";
   universidad: string;
   carrera: string;
   semestre: string;
@@ -297,7 +297,7 @@ export type AdminUserApi = {
   id: string;
   nombre: string;
   correo: string;
-  rol: "estudiante" | "admin";
+  rol: "estudiante" | "admin" | "superadmin";
   emailVerificado: boolean;
   plan: UsuarioApi["plan"];
   creadoEn: string;
