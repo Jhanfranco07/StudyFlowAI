@@ -54,7 +54,7 @@ app.use(express.json());
 const pool = urlBaseDeDatos ? new Pool({ connectionString: urlBaseDeDatos }) : null;
 const clienteGoogle = googleClientId ? new OAuth2Client(googleClientId) : null;
 
-async function enviarVerificacionCorreo({ estudianteId, nombres, correo }) {
+async function enviarVerificacionCorreo({ estudianteId, nombres, correo, tipo = "registro" }) {
   if (!pool) return { ok: false, omitido: true };
 
   const token = crearTokenSeguro();
@@ -71,7 +71,7 @@ async function enviarVerificacionCorreo({ estudianteId, nombres, correo }) {
     [tokenHash, expira, estudianteId],
   );
 
-  const correoVerificacion = construirCorreoVerificacion({ nombres, token });
+  const correoVerificacion = construirCorreoVerificacion({ nombres, token, tipo });
   return enviarCorreo({
     para: correo,
     asunto: correoVerificacion.asunto,
@@ -2321,6 +2321,7 @@ app.post("/api/auth/resend-verification", async (request, response) => {
       estudianteId: usuario.id,
       nombres: usuario.nombres,
       correo: usuario.correo,
+      tipo: "reenvio",
     });
 
     response.json({ ok: Boolean(envio.ok), omitido: Boolean(envio.omitido) });

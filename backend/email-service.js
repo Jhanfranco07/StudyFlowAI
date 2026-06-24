@@ -44,23 +44,38 @@ export async function enviarCorreo({ para, asunto, html, texto }) {
   return { ok: true };
 }
 
-export function construirCorreoVerificacion({ nombres, token }) {
+export function construirCorreoVerificacion({ nombres, token, tipo = "registro" }) {
   const url = construirUrlVerificacionCorreo(token);
   const nombre = escapeHtml(nombres || "estudiante");
+  const esReenvio = tipo === "reenvio";
+  const asunto = esReenvio
+    ? "Nuevo enlace de verificacion para StudyFlow AI"
+    : "Verifica tu correo en StudyFlow AI";
+  const titulo = esReenvio ? "Nuevo enlace de verificacion" : "Verifica tu correo";
+  const mensaje = esReenvio
+    ? "Solicitaste un nuevo enlace para verificar tu correo en StudyFlow AI. Usa este enlace actualizado para completar la verificacion."
+    : "Confirma que este correo te pertenece para activar avisos por email en StudyFlow AI.";
+  const texto = esReenvio
+    ? `Hola ${nombres || "estudiante"}, solicitaste un nuevo enlace de verificacion. Entra aqui para confirmar tu correo: ${url}`
+    : `Hola ${nombres || "estudiante"}, confirma tu correo entrando a este enlace: ${url}`;
+  const textoBoton = esReenvio ? "Usar nuevo enlace" : "Verificar correo";
+  const nota = esReenvio
+    ? "Si no pediste reenviar este enlace, puedes ignorar este mensaje."
+    : "Si no creaste esta cuenta, puedes ignorar este mensaje.";
 
   return {
-    asunto: "Verifica tu correo en StudyFlow AI",
-    texto: `Hola ${nombres || "estudiante"}, confirma tu correo entrando a este enlace: ${url}`,
+    asunto,
+    texto,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; color: #0f172a;">
-        <h1 style="font-size: 24px; margin-bottom: 12px;">Verifica tu correo</h1>
-        <p>Hola ${nombre}, confirma que este correo te pertenece para activar avisos por email en StudyFlow AI.</p>
+        <h1 style="font-size: 24px; margin-bottom: 12px;">${titulo}</h1>
+        <p>Hola ${nombre}, ${mensaje}</p>
         <p style="margin: 28px 0;">
           <a href="${url}" style="background: #2563eb; color: #ffffff; padding: 12px 18px; border-radius: 8px; text-decoration: none; font-weight: 700;">
-            Verificar correo
+            ${textoBoton}
           </a>
         </p>
-        <p style="font-size: 13px; color: #475569;">Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
+        <p style="font-size: 13px; color: #475569;">${nota}</p>
       </div>
     `,
   };
