@@ -267,6 +267,18 @@ export type AdminMetricsApi = {
   totalNotificaciones: number | null;
   usuariosPorPlan: Array<{ plan: UsuarioApi["plan"]; total: number }>;
   usuariosPorVerificacion: Array<{ estado: "verificado" | "no_verificado"; total: number }>;
+  usuariosPorRol: Array<{ rol: UsuarioApi["rol"]; total: number }>;
+  tareasPorEstado: Array<{ estado: "pending" | "in-progress" | "completed" | "overdue"; total: number }>;
+  usuariosPorMetodoEstudio: Array<{ metodo: string; total: number }>;
+  usuariosPorTonoAsistente: Array<{ tono: "frio" | "amigable" | "responsable" | "sin_definir"; total: number }>;
+  usuariosPorObjetivo: Array<{ objetivo: UsuarioApi["objetivoAcademico"]; total: number }>;
+  usuariosPorTipoPerfil: Array<{ tipo: UsuarioApi["tipoPerfil"]; total: number }>;
+  usuariosPorMicroSesion: Array<{ duracion: number; total: number }>;
+  usuariosRecientes: number;
+  porcentajeVerificacion: number;
+  promedioCursosPorUsuario: number;
+  promedioTareasPorUsuario: number;
+  promedioExamenesPorUsuario: number;
 };
 
 export type AdminUserApi = {
@@ -280,6 +292,37 @@ export type AdminUserApi = {
   totalCursos?: number;
   totalTareas?: number;
   totalExamenes?: number;
+};
+
+export type AdminUserDetailApi = AdminUserApi & {
+  universidad: string;
+  carrera: string;
+  semestre: string;
+  tipoPerfil: UsuarioApi["tipoPerfil"];
+  objetivoAcademico: UsuarioApi["objetivoAcademico"];
+  preferenciaMicroSesion: UsuarioApi["preferenciaMicroSesion"];
+  horarioLaboral: string | null;
+  diasMayorDisponibilidad: string | null;
+  tieneTesisProyecto: boolean;
+  tiempoRealDisponibleDia: number | null;
+  horasDisponibles: string | null;
+  metodoEstudio: string | null;
+  tonoAsistente: UsuarioApi["tonoAsistente"];
+  metas: string | null;
+  horasEstudioDiarias: number | null;
+  horasSueno: number | null;
+  cursos: Array<{ id: string; nombre: string; docente: string; semestre: string; color: string }>;
+  tareas: Array<{
+    titulo: string;
+    prioridad: "low" | "medium" | "high";
+    estado: "pending" | "in-progress" | "completed" | "overdue";
+    progreso: number;
+    fechaEntrega: string;
+  }>;
+  examenes: Array<{ titulo: string; fecha: string; preparacion: number }>;
+  totalNotificaciones: number;
+  totalProyectosLargos: number;
+  totalTrabajosGrupales: number;
 };
 
 function crearHeadersAdmin(adminId: string) {
@@ -633,6 +676,12 @@ export const api = {
   },
   obtenerUsuariosAdmin(adminId: string) {
     return request<AdminUserApi[]>("/api/admin/users", {
+      headers: crearHeadersAdmin(adminId),
+      timeoutMs: TIEMPO_ESPERA_API_LENTO,
+    });
+  },
+  obtenerDetalleUsuarioAdmin(adminId: string, userId: string) {
+    return request<AdminUserDetailApi>(`/api/admin/users/${userId}`, {
       headers: crearHeadersAdmin(adminId),
       timeoutMs: TIEMPO_ESPERA_API_LENTO,
     });

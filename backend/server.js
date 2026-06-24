@@ -2297,6 +2297,14 @@ app.get("/api/admin/metrics", async (request, response) => {
       totalNotificaciones,
       usuariosPorPlan,
       usuariosPorVerificacion,
+      usuariosPorRol,
+      tareasPorEstado,
+      usuariosRecientes,
+      usuariosPorMetodoEstudio,
+      usuariosPorTonoAsistente,
+      usuariosPorObjetivo,
+      usuariosPorTipoPerfil,
+      usuariosPorMicroSesion,
     ] = await Promise.all([
       contarTabla("estudiantes"),
       pool.query("select count(*)::int as total from estudiantes where email_verificado = true"),
@@ -2310,11 +2318,26 @@ app.get("/api/admin/metrics", async (request, response) => {
       pool.query(
         "select case when email_verificado then 'verificado' else 'no_verificado' end as estado, count(*)::int as total from estudiantes group by email_verificado order by estado asc",
       ),
+      pool.query("select rol, count(*)::int as total from estudiantes group by rol order by rol asc"),
+      pool.query("select estado, count(*)::int as total from tareas group by estado order by estado asc"),
+      pool.query("select count(*)::int as total from estudiantes where creado_en >= now() - interval '30 days'"),
+      pool.query("select coalesce(nullif(metodo_estudio, ''), 'sin_definir') as metodo, count(*)::int as total from estudiantes group by metodo order by total desc, metodo asc"),
+      pool.query("select coalesce(nullif(tono_asistente, ''), 'responsable') as tono, count(*)::int as total from estudiantes group by tono order by total desc, tono asc"),
+      pool.query("select objetivo_academico as objetivo, count(*)::int as total from estudiantes group by objetivo_academico order by total desc, objetivo_academico asc"),
+      pool.query("select tipo_perfil as tipo, count(*)::int as total from estudiantes group by tipo_perfil order by total desc, tipo_perfil asc"),
+      pool.query("select preferencia_micro_sesion as duracion, count(*)::int as total from estudiantes group by preferencia_micro_sesion order by duracion asc"),
     ]);
+
+    const totalUsuariosSeguro = totalUsuarios ?? 0;
+    const totalTareasSeguro = totalTareas ?? 0;
+    const totalCursosSeguro = totalCursos ?? 0;
+    const totalExamenesSeguro = totalExamenes ?? 0;
+    const verificados = totalUsuariosVerificados.rows[0]?.total ?? 0;
+    const calcularPromedio = (total) => (totalUsuariosSeguro > 0 ? Number((total / totalUsuariosSeguro).toFixed(2)) : 0);
 
     response.json({
       totalUsuarios,
-      totalUsuariosVerificados: totalUsuariosVerificados.rows[0]?.total ?? 0,
+      totalUsuariosVerificados: verificados,
       totalCursos,
       totalTareas,
       totalExamenes,
@@ -2323,6 +2346,18 @@ app.get("/api/admin/metrics", async (request, response) => {
       totalNotificaciones,
       usuariosPorPlan: usuariosPorPlan.rows,
       usuariosPorVerificacion: usuariosPorVerificacion.rows,
+      usuariosPorRol: usuariosPorRol.rows,
+      tareasPorEstado: tareasPorEstado.rows,
+      usuariosRecientes: usuariosRecientes.rows[0]?.total ?? 0,
+      usuariosPorMetodoEstudio: usuariosPorMetodoEstudio.rows,
+      usuariosPorTonoAsistente: usuariosPorTonoAsistente.rows,
+      usuariosPorObjetivo: usuariosPorObjetivo.rows,
+      usuariosPorTipoPerfil: usuariosPorTipoPerfil.rows,
+      usuariosPorMicroSesion: usuariosPorMicroSesion.rows,
+      porcentajeVerificacion: totalUsuariosSeguro > 0 ? Math.round((verificados / totalUsuariosSeguro) * 100) : 0,
+      promedioCursosPorUsuario: calcularPromedio(totalCursosSeguro),
+      promedioTareasPorUsuario: calcularPromedio(totalTareasSeguro),
+      promedioExamenesPorUsuario: calcularPromedio(totalExamenesSeguro),
     });
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudieron cargar las metricas admin.", error: error.message });
@@ -2375,6 +2410,124 @@ app.get("/api/admin/users", async (request, response) => {
     );
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudieron cargar los usuarios admin.", error: error.message });
+  }
+});
+
+app.get("/api/admin/users/:userId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const admin = await obtenerAdministradorSolicitante(request, response);
+    if (!admin) return;
+
+    const [usuario, cursos, tareas, examenes, notificaciones, proyectosLargos, trabajosGrupales] = await Promise.all([
+      pool.query(
+        `
+        select
+          id,
+          nombres,
+          apellidos,
+          correo,
+          rol,
+          universidad,
+          carrera,
+          semestre,
+          plan,
+          tipo_perfil as "tipoPerfil",
+          objetivo_academico as "objetivoAcademico",
+          preferencia_micro_sesion as "preferenciaMicroSesion",
+          horario_laboral as "horarioLaboral",
+          dias_mayor_disponibilidad as "diasMayorDisponibilidad",
+          tiene_tesis_proyecto as "tieneTesisProyecto",
+          tiempo_real_disponible_dia as "tiempoRealDisponibleDia",
+          horas_disponibles as "horasDisponibles",
+          metodo_estudio as "metodoEstudio",
+          tono_asistente as "tonoAsistente",
+          metas,
+          horas_estudio_diarias as "horasEstudioDiarias",
+          horas_sueno as "horasSueno",
+          email_verificado as "emailVerificado",
+          creado_en as "creadoEn"
+        from estudiantes
+        where id = $1
+        limit 1
+        `,
+        [request.params.userId],
+      ),
+      pool.query(
+        `
+        select id, nombre, docente, semestre, color
+        from cursos
+        where estudiante_id = $1
+        order by nombre asc
+        limit 6
+        `,
+        [request.params.userId],
+      ),
+      pool.query(
+        `
+        select titulo, prioridad, estado, progreso, fecha_entrega as "fechaEntrega"
+        from tareas
+        where estudiante_id = $1
+        order by fecha_entrega asc
+        limit 6
+        `,
+        [request.params.userId],
+      ),
+      pool.query(
+        `
+        select titulo, fecha_examen as fecha, preparacion
+        from examenes
+        where estudiante_id = $1
+        order by fecha_examen asc
+        limit 5
+        `,
+        [request.params.userId],
+      ),
+      pool.query("select count(*)::int as total from notificaciones where estudiante_id = $1", [request.params.userId]),
+      pool.query("select count(*)::int as total from proyectos_largos where estudiante_id = $1", [request.params.userId]),
+      pool.query("select count(*)::int as total from proyectos_grupales where estudiante_id = $1", [request.params.userId]),
+    ]);
+
+    const row = usuario.rows[0];
+    if (!row) {
+      response.status(404).json({ mensaje: "Usuario no encontrado." });
+      return;
+    }
+
+    response.json({
+      id: row.id,
+      nombre: `${row.nombres} ${row.apellidos}`.trim(),
+      correo: row.correo,
+      rol: row.rol,
+      plan: row.plan,
+      emailVerificado: Boolean(row.emailVerificado),
+      creadoEn: row.creadoEn,
+      universidad: row.universidad,
+      carrera: row.carrera,
+      semestre: row.semestre,
+      tipoPerfil: row.tipoPerfil,
+      objetivoAcademico: row.objetivoAcademico,
+      preferenciaMicroSesion: row.preferenciaMicroSesion,
+      horarioLaboral: row.horarioLaboral,
+      diasMayorDisponibilidad: row.diasMayorDisponibilidad,
+      tieneTesisProyecto: Boolean(row.tieneTesisProyecto),
+      tiempoRealDisponibleDia: row.tiempoRealDisponibleDia,
+      horasDisponibles: row.horasDisponibles,
+      metodoEstudio: row.metodoEstudio,
+      tonoAsistente: row.tonoAsistente,
+      metas: row.metas,
+      horasEstudioDiarias: row.horasEstudioDiarias,
+      horasSueno: row.horasSueno,
+      cursos: cursos.rows,
+      tareas: tareas.rows,
+      examenes: examenes.rows,
+      totalNotificaciones: notificaciones.rows[0]?.total ?? 0,
+      totalProyectosLargos: proyectosLargos.rows[0]?.total ?? 0,
+      totalTrabajosGrupales: trabajosGrupales.rows[0]?.total ?? 0,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo cargar el detalle del usuario.", error: error.message });
   }
 });
 
