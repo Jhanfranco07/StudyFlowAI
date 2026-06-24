@@ -134,6 +134,14 @@ export default function AdminPanel() {
     (metricas?.totalCursos ?? 0) +
     (metricas?.totalTareas ?? 0) +
     (metricas?.totalExamenes ?? 0);
+  const usuariosPorPlan = metricas?.usuariosPorPlan ?? [];
+  const usuariosPorRol = metricas?.usuariosPorRol ?? [];
+  const tareasPorEstado = metricas?.tareasPorEstado ?? [];
+  const usuariosPorMetodoEstudio = metricas?.usuariosPorMetodoEstudio ?? [];
+  const usuariosPorTonoAsistente = metricas?.usuariosPorTonoAsistente ?? [];
+  const usuariosPorObjetivo = metricas?.usuariosPorObjetivo ?? [];
+  const usuariosPorTipoPerfil = metricas?.usuariosPorTipoPerfil ?? [];
+  const usuariosPorMicroSesion = metricas?.usuariosPorMicroSesion ?? [];
 
   const actualizarUsuario = (usuarioActualizado: AdminUserApi) => {
     setUsuarios((actuales) =>
@@ -286,8 +294,8 @@ export default function AdminPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {metricas?.usuariosPorPlan.length ? (
-                  metricas.usuariosPorPlan.map((item) => (
+                {usuariosPorPlan.length ? (
+                  usuariosPorPlan.map((item) => (
                     <BarraDistribucion
                       key={item.plan}
                       etiqueta={etiquetaPlan(item.plan)}
@@ -327,8 +335,8 @@ export default function AdminPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {metricas?.tareasPorEstado.length ? (
-                  metricas.tareasPorEstado.map((item) => (
+                {tareasPorEstado.length ? (
+                  tareasPorEstado.map((item) => (
                     <BarraDistribucion
                       key={item.estado}
                       etiqueta={etiquetaEstadoTarea(item.estado)}
@@ -359,7 +367,7 @@ export default function AdminPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {(metricas?.usuariosPorRol.length ? metricas.usuariosPorRol : [
+                {(usuariosPorRol.length ? usuariosPorRol : [
                   { rol: "admin" as const, total: totalAdmins },
                   { rol: "estudiante" as const, total: totalEstudiantes },
                 ]).map((item) => (
@@ -384,8 +392,8 @@ export default function AdminPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {metricas?.usuariosPorMetodoEstudio.length ? (
-                  metricas.usuariosPorMetodoEstudio.map((item) => (
+                {usuariosPorMetodoEstudio.length ? (
+                  usuariosPorMetodoEstudio.map((item) => (
                     <BarraDistribucion
                       key={item.metodo}
                       etiqueta={etiquetaTexto(item.metodo)}
@@ -408,8 +416,8 @@ export default function AdminPanel() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {metricas?.usuariosPorTonoAsistente.length ? (
-                  metricas.usuariosPorTonoAsistente.map((item) => (
+                {usuariosPorTonoAsistente.length ? (
+                  usuariosPorTonoAsistente.map((item) => (
                     <BarraDistribucion
                       key={item.tono}
                       etiqueta={etiquetaTono(item.tono)}
@@ -434,18 +442,18 @@ export default function AdminPanel() {
               <CardContent className="grid gap-3">
                 <MiniDato
                   etiqueta="Objetivo principal"
-                  valor={etiquetaTexto(metricas?.usuariosPorObjetivo[0]?.objetivo)}
-                  detalle={`${metricas?.usuariosPorObjetivo[0]?.total ?? 0} usuarios`}
+                  valor={etiquetaTexto(usuariosPorObjetivo[0]?.objetivo)}
+                  detalle={`${usuariosPorObjetivo[0]?.total ?? 0} usuarios`}
                 />
                 <MiniDato
                   etiqueta="Perfil mas comun"
-                  valor={etiquetaTexto(metricas?.usuariosPorTipoPerfil[0]?.tipo)}
-                  detalle={`${metricas?.usuariosPorTipoPerfil[0]?.total ?? 0} usuarios`}
+                  valor={etiquetaTexto(usuariosPorTipoPerfil[0]?.tipo)}
+                  detalle={`${usuariosPorTipoPerfil[0]?.total ?? 0} usuarios`}
                 />
                 <MiniDato
                   etiqueta="Micro-sesion preferida"
-                  valor={`${metricas?.usuariosPorMicroSesion[0]?.duracion ?? 0} min`}
-                  detalle={`${metricas?.usuariosPorMicroSesion[0]?.total ?? 0} usuarios`}
+                  valor={`${usuariosPorMicroSesion[0]?.duracion ?? 0} min`}
+                  detalle={`${usuariosPorMicroSesion[0]?.total ?? 0} usuarios`}
                 />
               </CardContent>
             </Card>
