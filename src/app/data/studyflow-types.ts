@@ -2,6 +2,7 @@ export type Prioridad = "low" | "medium" | "high";
 export type EstadoTarea = "pending" | "in-progress" | "completed" | "overdue";
 export type TipoNotificacion = "urgent" | "warning" | "info" | "success";
 export type PlanUsuario = "gratis" | "estudiante" | "premium" | "premium_plus";
+export type RolUsuario = "estudiante" | "admin";
 export type TipoPerfilUsuario =
   | "universitario"
   | "instituto"
@@ -59,6 +60,7 @@ export type PerfilUsuario = {
   nombres: string;
   apellidos: string;
   correo: string;
+  rol: RolUsuario;
   universidad: string;
   carrera: string;
   semestre: string;

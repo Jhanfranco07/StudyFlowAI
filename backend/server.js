@@ -1301,6 +1301,44 @@ function normalizarRolPermiso(valor) {
   return ["admin", "editor", "responsable", "lector"].includes(valor) ? valor : "editor";
 }
 
+function obtenerIdSolicitanteAdmin(request) {
+  return String(request.get("x-studyflow-user-id") || request.query.adminId || request.body?.adminId || "").trim();
+}
+
+async function obtenerAdministradorSolicitante(request, response) {
+  const adminId = obtenerIdSolicitanteAdmin(request);
+  if (!adminId) {
+    response.status(401).json({ mensaje: "Usuario no autenticado." });
+    return null;
+  }
+
+  const resultado = await pool.query("select id, rol from estudiantes where id = $1 limit 1", [adminId]);
+  const usuario = resultado.rows[0];
+
+  if (!usuario) {
+    response.status(401).json({ mensaje: "Usuario no encontrado." });
+    return null;
+  }
+
+  if (usuario.rol !== "admin") {
+    response.status(403).json({ mensaje: "Acceso denegado. Se requiere rol administrador." });
+    return null;
+  }
+
+  return usuario;
+}
+
+async function contarTabla(nombreTabla) {
+  try {
+    const resultado = await pool.query(`select count(*)::int as total from ${nombreTabla}`);
+    return resultado.rows[0]?.total ?? 0;
+  } catch (error) {
+    // MVP admin: si una tabla opcional no existe en una BD local antigua, se omite sin romper el panel.
+    if (error.code === "42P01") return null;
+    throw error;
+  }
+}
+
 async function obtenerContextoEstudiante(estudianteId) {
   const [usuario, cursos, tareas, examenes, bloquesPlanificador, notificaciones, mensajesChat] =
     await Promise.all([
@@ -1311,6 +1349,7 @@ async function obtenerContextoEstudiante(estudianteId) {
           nombres,
           apellidos,
           correo,
+          rol,
           universidad,
           carrera,
           semestre,
@@ -1631,6 +1670,10 @@ async function obtenerProyectoGrupalPorId(proyectoId) {
 async function asegurarColumnasCompatibilidad() {
   if (!pool) return;
 
+  await pool.query("alter table estudiantes add column if not exists rol text not null default 'estudiante'");
+  await pool.query("update estudiantes set rol = 'estudiante' where rol is null or rol not in ('estudiante', 'admin')");
+  await pool.query("alter table estudiantes drop constraint if exists estudiantes_rol_check");
+  await pool.query("alter table estudiantes add constraint estudiantes_rol_check check (rol in ('estudiante', 'admin'))");
   await pool.query("alter table estudiantes add column if not exists google_sub text");
   await pool.query("alter table estudiantes add column if not exists tipo_perfil text not null default 'universitario'");
   await pool.query("alter table estudiantes drop constraint if exists estudiantes_tipo_perfil_check");
@@ -1751,6 +1794,7 @@ app.post("/api/auth/login", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,
@@ -1856,6 +1900,7 @@ app.post("/api/auth/google", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,
@@ -1949,6 +1994,7 @@ app.post("/api/auth/google", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,
@@ -2054,6 +2100,7 @@ app.post("/api/auth/register", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,
@@ -2130,6 +2177,7 @@ app.post("/api/auth/verify-email", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,
@@ -2231,6 +2279,196 @@ app.post("/api/auth/resend-verification", async (request, response) => {
   }
 });
 
+app.get("/api/admin/metrics", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const admin = await obtenerAdministradorSolicitante(request, response);
+    if (!admin) return;
+
+    const [
+      totalUsuarios,
+      totalUsuariosVerificados,
+      totalCursos,
+      totalTareas,
+      totalExamenes,
+      totalProyectosLargos,
+      totalTrabajosGrupales,
+      totalNotificaciones,
+      usuariosPorPlan,
+      usuariosPorVerificacion,
+    ] = await Promise.all([
+      contarTabla("estudiantes"),
+      pool.query("select count(*)::int as total from estudiantes where email_verificado = true"),
+      contarTabla("cursos"),
+      contarTabla("tareas"),
+      contarTabla("examenes"),
+      contarTabla("proyectos_largos"),
+      contarTabla("proyectos_grupales"),
+      contarTabla("notificaciones"),
+      pool.query("select plan, count(*)::int as total from estudiantes group by plan order by plan asc"),
+      pool.query(
+        "select case when email_verificado then 'verificado' else 'no_verificado' end as estado, count(*)::int as total from estudiantes group by email_verificado order by estado asc",
+      ),
+    ]);
+
+    response.json({
+      totalUsuarios,
+      totalUsuariosVerificados: totalUsuariosVerificados.rows[0]?.total ?? 0,
+      totalCursos,
+      totalTareas,
+      totalExamenes,
+      totalProyectosLargos,
+      totalTrabajosGrupales,
+      totalNotificaciones,
+      usuariosPorPlan: usuariosPorPlan.rows,
+      usuariosPorVerificacion: usuariosPorVerificacion.rows,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudieron cargar las metricas admin.", error: error.message });
+  }
+});
+
+app.get("/api/admin/users", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const admin = await obtenerAdministradorSolicitante(request, response);
+    if (!admin) return;
+
+    const resultado = await pool.query(
+      `
+      select
+        e.id,
+        e.nombres,
+        e.apellidos,
+        e.correo,
+        e.rol,
+        e.email_verificado as "emailVerificado",
+        e.plan,
+        e.creado_en as "creadoEn",
+        count(distinct c.id)::int as "totalCursos",
+        count(distinct t.id)::int as "totalTareas",
+        count(distinct ex.id)::int as "totalExamenes"
+      from estudiantes e
+      left join cursos c on c.estudiante_id = e.id
+      left join tareas t on t.estudiante_id = e.id
+      left join examenes ex on ex.estudiante_id = e.id
+      group by e.id
+      order by e.creado_en desc
+      `,
+    );
+
+    response.json(
+      resultado.rows.map((usuario) => ({
+        id: usuario.id,
+        nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
+        correo: usuario.correo,
+        rol: usuario.rol ?? "estudiante",
+        emailVerificado: Boolean(usuario.emailVerificado),
+        plan: usuario.plan,
+        creadoEn: usuario.creadoEn,
+        totalCursos: usuario.totalCursos,
+        totalTareas: usuario.totalTareas,
+        totalExamenes: usuario.totalExamenes,
+      })),
+    );
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudieron cargar los usuarios admin.", error: error.message });
+  }
+});
+
+app.patch("/api/admin/users/:userId/role", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const rol = String(request.body?.rol || "").trim();
+  if (!["estudiante", "admin"].includes(rol)) {
+    response.status(400).json({ mensaje: "Rol no valido." });
+    return;
+  }
+
+  try {
+    const admin = await obtenerAdministradorSolicitante(request, response);
+    if (!admin) return;
+
+    if (admin.id === request.params.userId && rol !== "admin") {
+      response.status(400).json({ mensaje: "No puedes quitarte tu propio rol administrador." });
+      return;
+    }
+
+    const resultado = await pool.query(
+      `
+      update estudiantes
+      set rol = $1
+      where id = $2
+      returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
+      `,
+      [rol, request.params.userId],
+    );
+
+    if (!resultado.rows[0]) {
+      response.status(404).json({ mensaje: "Usuario no encontrado." });
+      return;
+    }
+
+    const usuario = resultado.rows[0];
+    response.json({
+      id: usuario.id,
+      nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
+      correo: usuario.correo,
+      rol: usuario.rol,
+      emailVerificado: Boolean(usuario.emailVerificado),
+      plan: usuario.plan,
+      creadoEn: usuario.creadoEn,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo cambiar el rol.", error: error.message });
+  }
+});
+
+app.patch("/api/admin/users/:userId/plan", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const plan = String(request.body?.plan || "").trim();
+  if (!["gratis", "estudiante", "premium", "premium_plus"].includes(plan)) {
+    response.status(400).json({ mensaje: "Plan no valido." });
+    return;
+  }
+
+  try {
+    const admin = await obtenerAdministradorSolicitante(request, response);
+    if (!admin) return;
+
+    const resultado = await pool.query(
+      `
+      update estudiantes
+      set plan = $1
+      where id = $2
+      returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
+      `,
+      [plan, request.params.userId],
+    );
+
+    if (!resultado.rows[0]) {
+      response.status(404).json({ mensaje: "Usuario no encontrado." });
+      return;
+    }
+
+    const usuario = resultado.rows[0];
+    response.json({
+      id: usuario.id,
+      nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
+      correo: usuario.correo,
+      rol: usuario.rol,
+      emailVerificado: Boolean(usuario.emailVerificado),
+      plan: usuario.plan,
+      creadoEn: usuario.creadoEn,
+    });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo cambiar el plan.", error: error.message });
+  }
+});
+
 app.get("/api/salud", async (_request, response) => {
   const ia = {
     proveedor: obtenerProveedorIAActivo(),
@@ -2317,6 +2555,7 @@ app.patch("/api/perfil/:estudianteId", async (request, response) => {
         nombres,
         apellidos,
         correo,
+        rol,
         universidad,
         carrera,
         semestre,

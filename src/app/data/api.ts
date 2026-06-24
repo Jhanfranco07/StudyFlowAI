@@ -66,6 +66,7 @@ export type UsuarioApi = {
   nombres: string;
   apellidos: string;
   correo: string;
+  rol: "estudiante" | "admin";
   universidad: string;
   carrera: string;
   semestre: string;
@@ -254,6 +255,38 @@ export type RespuestaInicioSesionApi = {
   usuario: UsuarioApi | null;
   requiereCompletarPerfilAcademico?: boolean;
 };
+
+export type AdminMetricsApi = {
+  totalUsuarios: number;
+  totalUsuariosVerificados: number;
+  totalCursos: number | null;
+  totalTareas: number | null;
+  totalExamenes: number | null;
+  totalProyectosLargos: number | null;
+  totalTrabajosGrupales: number | null;
+  totalNotificaciones: number | null;
+  usuariosPorPlan: Array<{ plan: UsuarioApi["plan"]; total: number }>;
+  usuariosPorVerificacion: Array<{ estado: "verificado" | "no_verificado"; total: number }>;
+};
+
+export type AdminUserApi = {
+  id: string;
+  nombre: string;
+  correo: string;
+  rol: "estudiante" | "admin";
+  emailVerificado: boolean;
+  plan: UsuarioApi["plan"];
+  creadoEn: string;
+  totalCursos?: number;
+  totalTareas?: number;
+  totalExamenes?: number;
+};
+
+function crearHeadersAdmin(adminId: string) {
+  return {
+    "x-studyflow-user-id": adminId,
+  };
+}
 
 export const api = {
   iniciarSesion(payload: { correo: string; contrasena: string }) {
@@ -590,6 +623,32 @@ export const api = {
     return request<{ bloque: BloquePlanificadorApi; mensaje: string }>(`/api/micro-sesiones/${estudianteId}/agendar`, {
       method: "POST",
       body: JSON.stringify(payload),
+    });
+  },
+  obtenerMetricasAdmin(adminId: string) {
+    return request<AdminMetricsApi>("/api/admin/metrics", {
+      headers: crearHeadersAdmin(adminId),
+      timeoutMs: TIEMPO_ESPERA_API_LENTO,
+    });
+  },
+  obtenerUsuariosAdmin(adminId: string) {
+    return request<AdminUserApi[]>("/api/admin/users", {
+      headers: crearHeadersAdmin(adminId),
+      timeoutMs: TIEMPO_ESPERA_API_LENTO,
+    });
+  },
+  cambiarRolUsuarioAdmin(adminId: string, userId: string, rol: AdminUserApi["rol"]) {
+    return request<AdminUserApi>(`/api/admin/users/${userId}/role`, {
+      method: "PATCH",
+      headers: crearHeadersAdmin(adminId),
+      body: JSON.stringify({ rol }),
+    });
+  },
+  cambiarPlanUsuarioAdmin(adminId: string, userId: string, plan: UsuarioApi["plan"]) {
+    return request<AdminUserApi>(`/api/admin/users/${userId}/plan`, {
+      method: "PATCH",
+      headers: crearHeadersAdmin(adminId),
+      body: JSON.stringify({ plan }),
     });
   },
 };

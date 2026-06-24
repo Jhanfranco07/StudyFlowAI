@@ -12,6 +12,7 @@ import {
   LogOut,
   Milestone,
   Settings,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -31,6 +32,7 @@ const menuItems = [
   { path: "/app/progress", label: "Progreso", icon: TrendingUp },
   { path: "/app/notifications", label: "Notificaciones", icon: Bell },
   { path: "/app/settings", label: "Configuración", icon: Settings },
+  { path: "/admin", label: "Admin", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
@@ -43,7 +45,11 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
     [bloquesPlanificador, cursos, examenes, tareas],
   );
   const totalNotificacionesVisibles = Math.max(cantidadNoLeidas, alertasInteligentes.length);
-  const menuItemsVisibles = menuItems.filter((item) => !item.premiumPlus || canUseLongProjects(usuarioActual));
+  const menuItemsVisibles = menuItems.filter(
+    (item) =>
+      (!item.premiumPlus || canUseLongProjects(usuarioActual)) &&
+      (!item.adminOnly || usuarioActual?.rol === "admin"),
+  );
   const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 
   return (

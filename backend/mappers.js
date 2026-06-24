@@ -6,6 +6,7 @@ export function mapearUsuario(row) {
     nombres: row.nombres,
     apellidos: row.apellidos,
     correo: row.correo,
+    rol: row.rol ?? "estudiante",
     universidad: row.universidad,
     carrera: row.carrera,
     semestre: row.semestre,

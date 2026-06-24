@@ -6,6 +6,7 @@ create table if not exists estudiantes (
   apellidos text not null,
   correo text not null unique,
   google_sub text,
+  rol text not null default 'estudiante' check (rol in ('estudiante', 'admin')),
   hash_contrasena text not null,
   universidad text not null,
   carrera text not null,
