@@ -28,21 +28,22 @@ function crearUuidCliente() {
 
 async function request<T>(ruta: string, init?: OpcionesRequest): Promise<T> {
   const controller = new AbortController();
+  const { timeoutMs, headers: headersInit, signal: signalInit, ...opcionesFetch } = init ?? {};
   const timeout = window.setTimeout(
     () => controller.abort(),
-    init?.timeoutMs ?? TIEMPO_ESPERA_API,
+    timeoutMs ?? TIEMPO_ESPERA_API,
   );
 
   let response: Response;
 
   try {
     response = await fetch(`${URL_API}${ruta}`, {
+      ...opcionesFetch,
       headers: {
         "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
+        ...(headersInit ?? {}),
       },
-      ...init,
-      signal: init?.signal ?? controller.signal,
+      signal: signalInit ?? controller.signal,
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {

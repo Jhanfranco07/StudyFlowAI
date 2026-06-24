@@ -27,12 +27,25 @@ import {
   TableRow,
 } from "../components/ui/table";
 
-const planes: Array<{ valor: UsuarioApi["plan"]; etiqueta: string }> = [
-  { valor: "gratis", etiqueta: "Gratis" },
-  { valor: "estudiante", etiqueta: "Estudiante" },
-  { valor: "premium", etiqueta: "Premium" },
-  { valor: "premium_plus", etiqueta: "Premium Plus" },
+const PLAN_OPTIONS: Array<{ value: UsuarioApi["plan"]; label: string }> = [
+  { value: "gratis", label: "Gratis" },
+  { value: "estudiante", label: "Estudiante" },
+  { value: "premium", label: "Premium" },
+  { value: "premium_plus", label: "Premium Plus" },
 ];
+
+const ROLE_OPTIONS: Array<{ value: AdminUserApi["rol"]; label: string }> = [
+  { value: "estudiante", label: "Estudiante" },
+  { value: "admin", label: "Admin" },
+];
+
+function esRolAdminValido(valor: string): valor is AdminUserApi["rol"] {
+  return ROLE_OPTIONS.some((item) => item.value === valor);
+}
+
+function esPlanValido(valor: string): valor is UsuarioApi["plan"] {
+  return PLAN_OPTIONS.some((item) => item.value === valor);
+}
 
 function formatearFecha(valor: string) {
   const fecha = new Date(valor);
@@ -54,7 +67,7 @@ function porcentaje(parte: number, total: number) {
 }
 
 function etiquetaPlan(plan: UsuarioApi["plan"]) {
-  return planes.find((item) => item.valor === plan)?.etiqueta ?? plan;
+  return PLAN_OPTIONS.find((item) => item.value === plan)?.label ?? plan;
 }
 
 function etiquetaEstadoTarea(estado: string) {
@@ -534,16 +547,28 @@ export default function AdminPanel() {
                               <Select
                                 value={usuario.rol}
                                 disabled={actualizandoRol}
-                                onValueChange={(rol: AdminUserApi["rol"]) => cambiarRol(usuario, rol)}
+                                onValueChange={(rol) => {
+                                  if (esRolAdminValido(rol)) {
+                                    cambiarRol(usuario, rol);
+                                  } else {
+                                    setError("Rol no valido.");
+                                    setMensaje("");
+                                  }
+                                }}
                               >
                                 <SelectTrigger className="h-9 w-[132px]">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="estudiante" disabled={bloquearBajaAdmin}>
-                                    Estudiante
-                                  </SelectItem>
-                                  <SelectItem value="admin">Admin</SelectItem>
+                                  {ROLE_OPTIONS.map((rol) => (
+                                    <SelectItem
+                                      key={rol.value}
+                                      value={rol.value}
+                                      disabled={rol.value === "estudiante" && bloquearBajaAdmin}
+                                    >
+                                      {rol.label}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               {actualizandoRol ? <p className="text-xs text-blue-600">Actualizando rol...</p> : null}
@@ -555,15 +580,22 @@ export default function AdminPanel() {
                               <Select
                                 value={usuario.plan}
                                 disabled={actualizandoPlan}
-                                onValueChange={(plan: UsuarioApi["plan"]) => cambiarPlan(usuario, plan)}
+                                onValueChange={(plan) => {
+                                  if (esPlanValido(plan)) {
+                                    cambiarPlan(usuario, plan);
+                                  } else {
+                                    setError("Plan no valido.");
+                                    setMensaje("");
+                                  }
+                                }}
                               >
                                 <SelectTrigger className="h-9 w-[142px]">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {planes.map((plan) => (
-                                    <SelectItem key={plan.valor} value={plan.valor}>
-                                      {plan.etiqueta}
+                                  {PLAN_OPTIONS.map((plan) => (
+                                    <SelectItem key={plan.value} value={plan.value}>
+                                      {plan.label}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

@@ -1328,6 +1328,33 @@ async function obtenerAdministradorSolicitante(request, response) {
   return usuario;
 }
 
+const ROLES_ADMIN_PERMITIDOS = ["estudiante", "admin"];
+const PLANES_ADMIN_PERMITIDOS = ["gratis", "estudiante", "premium", "premium_plus"];
+
+function normalizarRolAdmin(valor) {
+  const rol = String(valor || "").trim().toLowerCase();
+  const equivalencias = {
+    estudiante: "estudiante",
+    usuario: "estudiante",
+    admin: "admin",
+    administrador: "admin",
+  };
+  return equivalencias[rol] || rol;
+}
+
+function normalizarPlanAdmin(valor) {
+  const plan = String(valor || "").trim().toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  const equivalencias = {
+    gratis: "gratis",
+    free: "gratis",
+    estudiante: "estudiante",
+    premium: "premium",
+    premium_plus: "premium_plus",
+    plus: "premium_plus",
+  };
+  return equivalencias[plan] || plan;
+}
+
 async function contarTabla(nombreTabla) {
   try {
     const resultado = await pool.query(`select count(*)::int as total from ${nombreTabla}`);
@@ -2534,9 +2561,9 @@ app.get("/api/admin/users/:userId", async (request, response) => {
 app.patch("/api/admin/users/:userId/role", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const rol = String(request.body?.rol || "").trim();
-  if (!["estudiante", "admin"].includes(rol)) {
-    response.status(400).json({ mensaje: "Rol no valido." });
+  const rol = normalizarRolAdmin(request.body?.rol);
+  if (!ROLES_ADMIN_PERMITIDOS.includes(rol)) {
+    response.status(400).json({ mensaje: "Rol no valido. Usa estudiante o admin." });
     return;
   }
 
@@ -2617,9 +2644,9 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
 app.patch("/api/admin/users/:userId/plan", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const plan = String(request.body?.plan || "").trim();
-  if (!["gratis", "estudiante", "premium", "premium_plus"].includes(plan)) {
-    response.status(400).json({ mensaje: "Plan no valido." });
+  const plan = normalizarPlanAdmin(request.body?.plan);
+  if (!PLANES_ADMIN_PERMITIDOS.includes(plan)) {
+    response.status(400).json({ mensaje: "Plan no valido. Usa gratis, estudiante, premium o premium_plus." });
     return;
   }
 
