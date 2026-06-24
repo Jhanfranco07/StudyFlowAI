@@ -2545,35 +2545,70 @@ app.patch("/api/admin/users/:userId/role", async (request, response) => {
     if (!admin) return;
 
     if (admin.id === request.params.userId && rol !== "admin") {
-      response.status(400).json({ mensaje: "No puedes quitarte tu propio rol administrador." });
+      response.status(403).json({ mensaje: "No puedes quitarte tu propio rol de administrador." });
       return;
     }
 
-    const resultado = await pool.query(
-      `
-      update estudiantes
-      set rol = $1
-      where id = $2
-      returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
-      `,
-      [rol, request.params.userId],
-    );
+    const cliente = await pool.connect();
 
-    if (!resultado.rows[0]) {
-      response.status(404).json({ mensaje: "Usuario no encontrado." });
-      return;
+    try {
+      await cliente.query("begin");
+
+      const usuarioObjetivo = await cliente.query(
+        "select id, rol from estudiantes where id = $1 limit 1",
+        [request.params.userId],
+      );
+
+      if (!usuarioObjetivo.rows[0]) {
+        await cliente.query("rollback");
+        response.status(404).json({ mensaje: "Usuario no encontrado." });
+        return;
+      }
+
+      if (usuarioObjetivo.rows[0].rol === "admin" && rol === "estudiante") {
+        const totalAdmins = await cliente.query("select count(*)::int as total from estudiantes where rol = 'admin'");
+        if ((totalAdmins.rows[0]?.total ?? 0) <= 1) {
+          await cliente.query("rollback");
+          response.status(400).json({ mensaje: "Debe existir al menos un administrador en el sistema." });
+          return;
+        }
+      }
+
+      const resultado = await cliente.query(
+        `
+        update estudiantes
+        set rol = $1
+        where id = $2
+        returning id, nombres, apellidos, correo, rol, email_verificado as "emailVerificado", plan, creado_en as "creadoEn"
+        `,
+        [rol, request.params.userId],
+      );
+
+      if (!resultado.rows[0]) {
+        await cliente.query("rollback");
+        response.status(404).json({ mensaje: "Usuario no encontrado." });
+        return;
+      }
+
+      await cliente.query("commit");
+
+      const usuario = resultado.rows[0];
+      response.json({
+        id: usuario.id,
+        nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
+        correo: usuario.correo,
+        rol: usuario.rol,
+        emailVerificado: Boolean(usuario.emailVerificado),
+        plan: usuario.plan,
+        creadoEn: usuario.creadoEn,
+      });
+    } catch (error) {
+      await cliente.query("rollback");
+      throw error;
+    } finally {
+      cliente.release();
     }
 
-    const usuario = resultado.rows[0];
-    response.json({
-      id: usuario.id,
-      nombre: `${usuario.nombres} ${usuario.apellidos}`.trim(),
-      correo: usuario.correo,
-      rol: usuario.rol,
-      emailVerificado: Boolean(usuario.emailVerificado),
-      plan: usuario.plan,
-      creadoEn: usuario.creadoEn,
-    });
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo cambiar el rol.", error: error.message });
   }

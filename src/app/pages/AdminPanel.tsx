@@ -87,6 +87,7 @@ export default function AdminPanel() {
   const [usuarios, setUsuarios] = useState<AdminUserApi[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
+  const [mensaje, setMensaje] = useState("");
   const [accionEnCurso, setAccionEnCurso] = useState("");
   const [usuarioSeleccionado, setUsuarioSeleccionado] = useState<AdminUserDetailApi | null>(null);
   const [cargandoDetalleId, setCargandoDetalleId] = useState("");
@@ -143,6 +144,12 @@ export default function AdminPanel() {
   const usuariosPorTipoPerfil = metricas?.usuariosPorTipoPerfil ?? [];
   const usuariosPorMicroSesion = metricas?.usuariosPorMicroSesion ?? [];
 
+  const refrescarMetricas = async () => {
+    if (!usuarioActual?.id) return;
+    const metricasActualizadas = await api.obtenerMetricasAdmin(usuarioActual.id);
+    setMetricas(metricasActualizadas);
+  };
+
   const actualizarUsuario = (usuarioActualizado: AdminUserApi) => {
     setUsuarios((actuales) =>
       actuales.map((usuario) =>
@@ -164,6 +171,7 @@ export default function AdminPanel() {
     if (!usuarioActual?.id) return;
     setCargandoDetalleId(usuario.id);
     setError("");
+    setMensaje("");
 
     try {
       const detalle = await api.obtenerDetalleUsuarioAdmin(usuarioActual.id, usuario.id);
@@ -177,14 +185,28 @@ export default function AdminPanel() {
 
   const cambiarRol = async (usuario: AdminUserApi, rol: AdminUserApi["rol"]) => {
     if (!usuarioActual?.id || usuario.rol === rol) return;
+    if (usuario.id === usuarioActual.id && rol === "estudiante") {
+      setError("No puedes quitarte tu propio rol de administrador.");
+      setMensaje("");
+      return;
+    }
+    if (usuario.rol === "admin" && rol === "estudiante" && totalAdmins <= 1) {
+      setError("Debe existir al menos un administrador en el sistema.");
+      setMensaje("");
+      return;
+    }
+
     setAccionEnCurso(`rol-${usuario.id}`);
     setError("");
+    setMensaje("");
 
     try {
       const actualizado = await api.cambiarRolUsuarioAdmin(usuarioActual.id, usuario.id, rol);
       actualizarUsuario(actualizado);
+      await refrescarMetricas();
+      setMensaje("Rol actualizado correctamente.");
     } catch (errorAccion) {
-      setError(errorAccion instanceof Error ? errorAccion.message : "No se pudo actualizar el rol.");
+      setError(errorAccion instanceof Error ? errorAccion.message : "No se pudo actualizar el usuario.");
     } finally {
       setAccionEnCurso("");
     }
@@ -194,12 +216,15 @@ export default function AdminPanel() {
     if (!usuarioActual?.id || usuario.plan === plan) return;
     setAccionEnCurso(`plan-${usuario.id}`);
     setError("");
+    setMensaje("");
 
     try {
       const actualizado = await api.cambiarPlanUsuarioAdmin(usuarioActual.id, usuario.id, plan);
       actualizarUsuario(actualizado);
+      await refrescarMetricas();
+      setMensaje("Plan actualizado correctamente.");
     } catch (errorAccion) {
-      setError(errorAccion instanceof Error ? errorAccion.message : "No se pudo actualizar el plan.");
+      setError(errorAccion instanceof Error ? errorAccion.message : "No se pudo actualizar el usuario.");
     } finally {
       setAccionEnCurso("");
     }
@@ -241,6 +266,12 @@ export default function AdminPanel() {
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      ) : null}
+
+      {mensaje ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {mensaje}
         </div>
       ) : null}
 
@@ -482,66 +513,88 @@ export default function AdminPanel() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {usuarios.map((usuario) => (
-                      <TableRow key={usuario.id}>
-                        <TableCell className="font-medium">{usuario.nombre || "Sin nombre"}</TableCell>
-                        <TableCell>{usuario.correo}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={usuario.rol}
-                            disabled={accionEnCurso === `rol-${usuario.id}`}
-                            onValueChange={(rol: AdminUserApi["rol"]) => cambiarRol(usuario, rol)}
-                          >
-                            <SelectTrigger className="h-9 w-[132px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="estudiante">Estudiante</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={usuario.plan}
-                            disabled={accionEnCurso === `plan-${usuario.id}`}
-                            onValueChange={(plan: UsuarioApi["plan"]) => cambiarPlan(usuario, plan)}
-                          >
-                            <SelectTrigger className="h-9 w-[142px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {planes.map((plan) => (
-                                <SelectItem key={plan.valor} value={plan.valor}>
-                                  {plan.etiqueta}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={usuario.emailVerificado ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}>
-                            {usuario.emailVerificado ? "Verificado" : "No verificado"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{formatearFecha(usuario.creadoEn)}</TableCell>
-                        <TableCell>
-                          <span className="text-slate-600">
-                            {usuario.totalCursos ?? 0} cursos / {usuario.totalTareas ?? 0} tareas / {usuario.totalExamenes ?? 0} examenes
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={cargandoDetalleId === usuario.id}
-                            onClick={() => cargarDetalleUsuario(usuario)}
-                          >
-                            {cargandoDetalleId === usuario.id ? "Cargando..." : "Ver detalle"}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {usuarios.map((usuario) => {
+                      const actualizandoRol = accionEnCurso === `rol-${usuario.id}`;
+                      const actualizandoPlan = accionEnCurso === `plan-${usuario.id}`;
+                      const esAdminActual = usuario.id === usuarioActual.id && usuario.rol === "admin";
+                      const esUnicoAdmin = usuario.rol === "admin" && totalAdmins <= 1;
+                      const bloquearBajaAdmin = esAdminActual || esUnicoAdmin;
+                      const ayudaRol = esAdminActual
+                        ? "No puedes cambiar tu propio rol admin"
+                        : esUnicoAdmin
+                          ? "Debe existir al menos un administrador"
+                          : "";
+
+                      return (
+                        <TableRow key={usuario.id}>
+                          <TableCell className="font-medium">{usuario.nombre || "Sin nombre"}</TableCell>
+                          <TableCell>{usuario.correo}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Select
+                                value={usuario.rol}
+                                disabled={actualizandoRol}
+                                onValueChange={(rol: AdminUserApi["rol"]) => cambiarRol(usuario, rol)}
+                              >
+                                <SelectTrigger className="h-9 w-[132px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="estudiante" disabled={bloquearBajaAdmin}>
+                                    Estudiante
+                                  </SelectItem>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {actualizandoRol ? <p className="text-xs text-blue-600">Actualizando rol...</p> : null}
+                              {ayudaRol ? <p className="max-w-[160px] text-xs text-slate-500">{ayudaRol}</p> : null}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Select
+                                value={usuario.plan}
+                                disabled={actualizandoPlan}
+                                onValueChange={(plan: UsuarioApi["plan"]) => cambiarPlan(usuario, plan)}
+                              >
+                                <SelectTrigger className="h-9 w-[142px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {planes.map((plan) => (
+                                    <SelectItem key={plan.valor} value={plan.valor}>
+                                      {plan.etiqueta}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {actualizandoPlan ? <p className="text-xs text-blue-600">Actualizando plan...</p> : null}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={usuario.emailVerificado ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}>
+                              {usuario.emailVerificado ? "Verificado" : "No verificado"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{formatearFecha(usuario.creadoEn)}</TableCell>
+                          <TableCell>
+                            <span className="text-slate-600">
+                              {usuario.totalCursos ?? 0} cursos / {usuario.totalTareas ?? 0} tareas / {usuario.totalExamenes ?? 0} examenes
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={cargandoDetalleId === usuario.id}
+                              onClick={() => cargarDetalleUsuario(usuario)}
+                            >
+                              {cargandoDetalleId === usuario.id ? "Cargando..." : "Ver detalle"}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               ) : (

@@ -55,6 +55,17 @@ async function request<T>(ruta: string, init?: OpcionesRequest): Promise<T> {
 
   if (!response.ok) {
     const texto = await response.text();
+    if (texto) {
+      let datos: { mensaje?: string; error?: string } | null = null;
+      try {
+        datos = JSON.parse(texto) as { mensaje?: string; error?: string };
+      } catch {
+        datos = null;
+      }
+      if (datos?.mensaje || datos?.error) {
+        throw new Error(datos.mensaje || datos.error);
+      }
+    }
     throw new Error(texto || `Error HTTP ${response.status}`);
   }
 
