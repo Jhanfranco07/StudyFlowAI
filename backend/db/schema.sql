@@ -90,6 +90,14 @@ create table if not exists tareas (
   creado_en timestamptz not null default now()
 );
 
+create table if not exists subtareas (
+  id uuid primary key default gen_random_uuid(),
+  tarea_id uuid not null references tareas(id) on delete cascade,
+  titulo text not null,
+  completada boolean not null default false,
+  creado_en timestamptz not null default now()
+);
+
 create table if not exists examenes (
   id uuid primary key default gen_random_uuid(),
   estudiante_id uuid not null references estudiantes(id) on delete cascade,

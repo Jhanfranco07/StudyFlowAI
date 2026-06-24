@@ -144,6 +144,7 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
   ) => void;
   actualizarTarea: (tareaId: string, cambios: Partial<Tarea>) => void;
   alternarTareaCompletada: (tareaId: string) => void;
+  eliminarTarea: (tareaId: string) => void;
   agregarSubtarea: (tareaId: string, titulo: string) => { ok: boolean; mensaje: string };
   alternarSubtarea: (tareaId: string, subtareaId: string) => void;
   eliminarSubtarea: (tareaId: string, subtareaId: string) => void;
@@ -378,7 +379,7 @@ function normalizarTareaApi(tarea: TareaApi, subtareas?: Subtarea[] | null): Tar
     ...tarea,
     prioridad: tarea.prioridad,
     estado: tarea.estado,
-    subtareas: normalizarSubtareas(subtareas),
+    subtareas: normalizarSubtareas(subtareas ?? tarea.subtareas),
   };
 }
 
@@ -1761,12 +1762,7 @@ function integrarContexto(estadoActual: EstadoStudyFlow, contexto: ContextoApi):
     materiales: estadoActual.cursos.find((item) => item.id === curso.id)?.materiales ?? [],
   }));
 
-  const tareasIntegradas: Tarea[] = contexto.tareas.map((tarea) =>
-    normalizarTareaApi(
-      tarea,
-      estadoActual.tareas.find((item) => item.id === tarea.id)?.subtareas,
-    ),
-  );
+  const tareasIntegradas: Tarea[] = contexto.tareas.map((tarea) => normalizarTareaApi(tarea));
 
   return {
     ...estadoActual,
@@ -2358,6 +2354,32 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           }
         }
       },
+      eliminarTarea: (tareaId) => {
+        const tareaActual = estado.tareas.find((item) => item.id === tareaId);
+        const notificacionLocal =
+          tareaActual && usuarioId
+            ? {
+                id: crearId("notif"),
+                tipo: "info" as const,
+                titulo: "Tarea eliminada",
+                mensaje: `"${tareaActual.titulo}" se eliminó de tu panel académico.`,
+                creadaEn: new Date().toISOString(),
+                noLeida: true,
+              }
+            : null;
+
+        setEstado((actual) => ({
+          ...actual,
+          tareas: actual.tareas.filter((item) => item.id !== tareaId),
+          notificaciones: notificacionLocal ? [notificacionLocal, ...actual.notificaciones] : actual.notificaciones,
+        }));
+
+        api.eliminarTarea(tareaId).catch(() => {});
+
+        if (usuarioId && notificacionLocal) {
+          persistirNotificacion(usuarioId, notificacionLocal);
+        }
+      },
       agregarSubtarea: (tareaId, titulo) => {
         const tituloLimpio = titulo.trim();
         if (!tituloLimpio) {
@@ -2366,6 +2388,8 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             mensaje: "Escribe primero la subtarea que quieres agregar.",
           };
         }
+
+        const subtareaLocal = { id: crearId("subtask"), titulo: tituloLimpio, completada: false };
 
         setEstado((actual) => ({
           ...actual,
@@ -2376,7 +2400,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
                     ...tarea,
                     subtareas: [
                       ...normalizarSubtareas(tarea.subtareas),
-                      { id: crearId("subtask"), titulo: tituloLimpio, completada: false },
+                      subtareaLocal,
                     ],
                   }
                 : tarea,
@@ -2384,12 +2408,26 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           ),
         }));
 
+        api.crearSubtarea(tareaId, { titulo: tituloLimpio }).then((tareaBackend) => {
+          setEstado((actual) => ({
+            ...actual,
+            tareas: normalizarTareas(
+              actual.tareas.map((tarea) =>
+                tarea.id === tareaId ? normalizarTareaApi(tareaBackend) : tarea,
+              ),
+            ),
+          }));
+        }).catch(() => {});
+
         return {
           ok: true,
           mensaje: "Subtarea agregada al checklist.",
         };
       },
       alternarSubtarea: (tareaId, subtareaId) => {
+        const tareaActual = estado.tareas.find((item) => item.id === tareaId);
+        const subtareaActual = tareaActual?.subtareas.find((item) => item.id === subtareaId);
+
         setEstado((actual) => ({
           ...actual,
           tareas: normalizarTareas(
@@ -2407,6 +2445,19 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             ),
           ),
         }));
+
+        if (subtareaActual) {
+          api.actualizarSubtarea(subtareaId, { completada: !subtareaActual.completada }).then((tareaBackend) => {
+            setEstado((actual) => ({
+              ...actual,
+              tareas: normalizarTareas(
+                actual.tareas.map((tarea) =>
+                  tarea.id === tareaId ? normalizarTareaApi(tareaBackend) : tarea,
+                ),
+              ),
+            }));
+          }).catch(() => {});
+        }
       },
       eliminarSubtarea: (tareaId, subtareaId) => {
         setEstado((actual) => ({
@@ -2424,6 +2475,17 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             ),
           ),
         }));
+
+        api.eliminarSubtarea(subtareaId).then((tareaBackend) => {
+          setEstado((actual) => ({
+            ...actual,
+            tareas: normalizarTareas(
+              actual.tareas.map((tarea) =>
+                tarea.id === tareaId ? normalizarTareaApi(tareaBackend) : tarea,
+              ),
+            ),
+          }));
+        }).catch(() => {});
       },
       posponerTarea: (tareaId, dias = 1) => {
         const tareaActual = estado.tareas.find((item) => item.id === tareaId);

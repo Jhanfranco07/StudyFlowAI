@@ -31,6 +31,7 @@ import {
   mapearExamen,
   mapearMensajeChat,
   mapearNotificacion,
+  mapearSubtarea,
   mapearIntegranteProyecto,
   mapearPasoProyectoLargo,
   mapearProyectoGrupal,
@@ -1233,6 +1234,65 @@ function construirCamposActualizacion(body, mapa) {
   return { sets, valores };
 }
 
+async function obtenerSubtareasPorTareas(tareaIds) {
+  if (!tareaIds.length) return new Map();
+
+  const resultado = await pool.query(
+    `
+    select
+      id,
+      tarea_id as "tareaId",
+      titulo,
+      completada
+    from subtareas
+    where tarea_id = any($1::uuid[])
+    order by creado_en asc
+    `,
+    [tareaIds],
+  );
+
+  const subtareasPorTarea = new Map();
+  resultado.rows.forEach((row) => {
+    const lista = subtareasPorTarea.get(row.tareaId) ?? [];
+    lista.push(mapearSubtarea(row));
+    subtareasPorTarea.set(row.tareaId, lista);
+  });
+
+  return subtareasPorTarea;
+}
+
+async function mapearTareasConSubtareas(rows) {
+  const subtareasPorTarea = await obtenerSubtareasPorTareas(rows.map((row) => row.id));
+  return rows.map((row) => ({
+    ...mapearTarea(row),
+    subtareas: subtareasPorTarea.get(row.id) ?? [],
+  }));
+}
+
+async function obtenerTareaPorId(tareaId) {
+  const resultado = await pool.query(
+    `
+    select
+      id,
+      curso_id as "cursoId",
+      titulo,
+      descripcion,
+      fecha_entrega as "fechaEntrega",
+      prioridad,
+      estado,
+      horas_estimadas as "horasEstimadas",
+      progreso
+    from tareas
+    where id = $1
+    limit 1
+    `,
+    [tareaId],
+  );
+
+  const tareas = await mapearTareasConSubtareas(resultado.rows);
+  return tareas[0] ?? null;
+}
+
 function crearCodigoInvitacion() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -1385,10 +1445,12 @@ async function obtenerContextoEstudiante(estudianteId) {
     obtenerProyectosGrupalesEstudiante(estudianteId),
   ]);
 
+  const tareasConSubtareas = await mapearTareasConSubtareas(tareas.rows);
+
   return {
     usuario: mapearUsuario(usuario.rows[0] ?? null),
     cursos: cursos.rows.map(mapearCurso),
-    tareas: tareas.rows.map(mapearTarea),
+    tareas: tareasConSubtareas,
     examenes: examenes.rows.map(mapearExamen),
     bloquesPlanificador: bloquesPlanificador.rows.map(mapearBloque),
     notificaciones: notificaciones.rows.map(mapearNotificacion),
@@ -1662,6 +1724,15 @@ async function asegurarColumnasCompatibilidad() {
       fecha_limite date not null,
       estado text not null default 'pendiente',
       progreso int not null default 0,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists subtareas (
+      id uuid primary key default gen_random_uuid(),
+      tarea_id uuid not null references tareas(id) on delete cascade,
+      titulo text not null,
+      completada boolean not null default false,
       creado_en timestamptz not null default now()
     )
   `);
@@ -2412,7 +2483,13 @@ app.get("/api/tareas/:estudianteId", async (request, response) => {
       [request.params.estudianteId],
     );
 
-    response.json(resultado.rows.map((row) => ({ ...mapearTarea(row), cursoNombre: row.cursoNombre })));
+    const tareasConSubtareas = await mapearTareasConSubtareas(resultado.rows);
+    response.json(
+      tareasConSubtareas.map((tarea, indice) => ({
+        ...tarea,
+        cursoNombre: resultado.rows[indice].cursoNombre,
+      })),
+    );
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudieron listar las tareas.", error: error.message });
   }
@@ -2458,7 +2535,7 @@ app.post("/api/tareas", async (request, response) => {
       [estudianteId, cursoId, titulo, descripcion, fechaEntrega, prioridad, horasEstimadas],
     );
 
-    response.status(201).json(mapearTarea(resultado.rows[0]));
+    response.status(201).json(await obtenerTareaPorId(resultado.rows[0].id));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo crear la tarea.", error: error.message });
   }
@@ -2471,6 +2548,7 @@ app.patch("/api/tareas/:tareaId", async (request, response) => {
   const campos = [];
   const valores = [];
   const mapa = {
+    cursoId: "curso_id",
     titulo: "titulo",
     descripcion: "descripcion",
     fechaEntrega: "fecha_entrega",
@@ -2519,9 +2597,102 @@ app.patch("/api/tareas/:tareaId", async (request, response) => {
       return;
     }
 
-    response.json(mapearTarea(resultado.rows[0]));
+    response.json(await obtenerTareaPorId(resultado.rows[0].id));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo actualizar la tarea.", error: error.message });
+  }
+});
+
+app.delete("/api/tareas/:tareaId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const resultado = await pool.query("delete from tareas where id = $1 returning id", [request.params.tareaId]);
+    if (!resultado.rows[0]) {
+      response.status(404).json({ mensaje: "Tarea no encontrada." });
+      return;
+    }
+    response.json({ ok: true });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo eliminar la tarea.", error: error.message });
+  }
+});
+
+app.post("/api/tareas/:tareaId/subtareas", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const titulo = String(request.body?.titulo || "").trim();
+  if (!titulo) {
+    response.status(400).json({ mensaje: "Titulo de subtarea requerido." });
+    return;
+  }
+
+  try {
+    const tarea = await pool.query("select id from tareas where id = $1 limit 1", [request.params.tareaId]);
+    if (!tarea.rows[0]) {
+      response.status(404).json({ mensaje: "Tarea no encontrada." });
+      return;
+    }
+
+    await pool.query("insert into subtareas (tarea_id, titulo) values ($1, $2)", [request.params.tareaId, titulo]);
+    response.status(201).json(await obtenerTareaPorId(request.params.tareaId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo crear la subtarea.", error: error.message });
+  }
+});
+
+app.patch("/api/subtareas/:subtareaId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const campos = construirCamposActualizacion(request.body, {
+    titulo: "titulo",
+    completada: "completada",
+  });
+
+  if (!campos.sets.length) {
+    response.status(400).json({ mensaje: "No se enviaron cambios validos." });
+    return;
+  }
+
+  try {
+    const resultado = await pool.query(
+      `
+      update subtareas
+      set ${campos.sets.join(", ")}
+      where id = $${campos.valores.length + 1}
+      returning tarea_id as "tareaId"
+      `,
+      [...campos.valores, request.params.subtareaId],
+    );
+
+    if (!resultado.rows[0]) {
+      response.status(404).json({ mensaje: "Subtarea no encontrada." });
+      return;
+    }
+
+    response.json(await obtenerTareaPorId(resultado.rows[0].tareaId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar la subtarea.", error: error.message });
+  }
+});
+
+app.delete("/api/subtareas/:subtareaId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const resultado = await pool.query(
+      "delete from subtareas where id = $1 returning tarea_id as \"tareaId\"",
+      [request.params.subtareaId],
+    );
+
+    if (!resultado.rows[0]) {
+      response.status(404).json({ mensaje: "Subtarea no encontrada." });
+      return;
+    }
+
+    response.json(await obtenerTareaPorId(resultado.rows[0].tareaId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo eliminar la subtarea.", error: error.message });
   }
 });
 

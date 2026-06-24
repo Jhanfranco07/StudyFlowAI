@@ -130,6 +130,12 @@ export type TareaApi = {
   estado: "pending" | "in-progress" | "completed" | "overdue";
   horasEstimadas: number;
   progreso: number;
+  subtareas: Array<{
+    id: string;
+    tareaId: string;
+    titulo: string;
+    completada: boolean;
+  }>;
 };
 
 export type ExamenApi = {
@@ -394,6 +400,7 @@ export const api = {
   actualizarTarea(
     tareaId: string,
     payload: Partial<{
+      cursoId: string;
       titulo: string;
       descripcion: string;
       fechaEntrega: string;
@@ -406,6 +413,28 @@ export const api = {
     return request<TareaApi>(`/api/tareas/${tareaId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
+    });
+  },
+  eliminarTarea(tareaId: string) {
+    return request<{ ok: true }>(`/api/tareas/${tareaId}`, {
+      method: "DELETE",
+    });
+  },
+  crearSubtarea(tareaId: string, payload: { titulo: string }) {
+    return request<TareaApi>(`/api/tareas/${tareaId}/subtareas`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarSubtarea(subtareaId: string, payload: { titulo?: string; completada?: boolean }) {
+    return request<TareaApi>(`/api/subtareas/${subtareaId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+  eliminarSubtarea(subtareaId: string) {
+    return request<TareaApi>(`/api/subtareas/${subtareaId}`, {
+      method: "DELETE",
     });
   },
   guardarPlanificador(estudianteId: string, bloques: BloquePlanificadorApi[]) {

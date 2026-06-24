@@ -62,6 +62,16 @@ export function mapearTarea(row) {
     estado: row.estado,
     horasEstimadas: Number(row.horasEstimadas),
     progreso: row.progreso,
+    subtareas: row.subtareas ?? [],
+  };
+}
+
+export function mapearSubtarea(row) {
+  return {
+    id: row.id,
+    tareaId: row.tareaId,
+    titulo: row.titulo,
+    completada: row.completada,
   };
 }
 

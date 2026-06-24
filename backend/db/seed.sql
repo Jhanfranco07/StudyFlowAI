@@ -12,6 +12,7 @@ truncate table
   notificaciones,
   bloques_planificador,
   examenes,
+  subtareas,
   tareas,
   cursos,
   estudiantes

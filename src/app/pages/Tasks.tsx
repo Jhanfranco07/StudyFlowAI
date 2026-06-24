@@ -51,6 +51,7 @@ export default function Tasks() {
     cursos,
     agregarTarea,
     alternarTareaCompletada,
+    eliminarTarea,
     actualizarTarea,
     agendarTareaEnCalendario,
     agregarSubtarea,
@@ -523,6 +524,15 @@ export default function Tasks() {
                     >
                       {estadoVisual === "completed" ? "Reabrir" : "Completar"}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
+                      onClick={() => eliminarTarea(tarea.id)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -781,6 +791,15 @@ export default function Tasks() {
                             onClick={() => alternarTareaCompletada(tarea.id)}
                           >
                             Reabrir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
+                            onClick={() => eliminarTarea(tarea.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Eliminar
                           </Button>
                         </div>
                       </div>
