@@ -2098,9 +2098,9 @@ app.post("/api/auth/register", async (request, response) => {
     apellidos,
     correo,
     contrasena,
-    universidad,
-    carrera,
-    semestre,
+    universidad = "Por definir",
+    carrera = "Por definir",
+    semestre = "Por definir",
     plan = "gratis",
     tipoPerfil = "universitario",
   } = request.body;

@@ -136,6 +136,10 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
     tieneTesisProyecto?: boolean;
     tiempoRealDisponibleDia?: number;
     preferenciaMicroSesion?: PreferenciaMicroSesion;
+    horasDisponibles?: string;
+    metodoEstudio?: string;
+    tonoAsistente?: PerfilUsuario["tonoAsistente"];
+    metas?: string;
   }) => Promise<boolean>;
   agregarTarea: (
     tarea: Omit<Tarea, "id" | "estado" | "progreso" | "subtareas"> & {
@@ -261,8 +265,8 @@ function tieneTextoPerfilAcademicoValido(valor: string | null | undefined) {
 
 function usuarioRequiereCompletarPerfilAcademico(
   usuario:
-    | Pick<PerfilUsuario, "universidad" | "carrera" | "semestre">
-    | Pick<UsuarioApi, "universidad" | "carrera" | "semestre">
+    | Pick<PerfilUsuario, "universidad" | "carrera" | "semestre" | "metas">
+    | Pick<UsuarioApi, "universidad" | "carrera" | "semestre" | "metas">
     | null,
 ) {
   if (!usuario) return false;
@@ -270,7 +274,8 @@ function usuarioRequiereCompletarPerfilAcademico(
   return !(
     tieneTextoPerfilAcademicoValido(usuario.universidad) &&
     tieneTextoPerfilAcademicoValido(usuario.carrera) &&
-    tieneTextoPerfilAcademicoValido(usuario.semestre)
+    tieneTextoPerfilAcademicoValido(usuario.semestre) &&
+    tieneTextoPerfilAcademicoValido(usuario.metas)
   );
 }
 
@@ -2226,6 +2231,10 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             tieneTesisProyecto: datos.tieneTesisProyecto,
             tiempoRealDisponibleDia: datos.tiempoRealDisponibleDia,
             preferenciaMicroSesion: datos.preferenciaMicroSesion,
+            horasDisponibles: datos.horasDisponibles,
+            metodoEstudio: datos.metodoEstudio,
+            tonoAsistente: datos.tonoAsistente,
+            metas: datos.metas?.trim(),
           });
 
           setEstado((actual) => ({

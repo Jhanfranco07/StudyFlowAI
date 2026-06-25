@@ -53,6 +53,10 @@ export default function CompleteProfilePage() {
     tieneTesisProyecto: usuarioActual?.tieneTesisProyecto ?? false,
     tiempoRealDisponibleDia: usuarioActual?.tiempoRealDisponibleDia ?? 1,
     preferenciaMicroSesion: usuarioActual?.preferenciaMicroSesion ?? 20,
+    horasDisponibles: usuarioActual?.horasDisponibles ?? "4-6",
+    metodoEstudio: usuarioActual?.metodoEstudio ?? "pomodoro",
+    tonoAsistente: usuarioActual?.tonoAsistente ?? "responsable",
+    metas: limpiarCampoInicial(usuarioActual?.metas ?? ""),
   });
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState("");
@@ -69,6 +73,10 @@ export default function CompleteProfilePage() {
       tieneTesisProyecto: usuarioActual?.tieneTesisProyecto ?? false,
       tiempoRealDisponibleDia: usuarioActual?.tiempoRealDisponibleDia ?? 1,
       preferenciaMicroSesion: usuarioActual?.preferenciaMicroSesion ?? 20,
+      horasDisponibles: usuarioActual?.horasDisponibles ?? "4-6",
+      metodoEstudio: usuarioActual?.metodoEstudio ?? "pomodoro",
+      tonoAsistente: usuarioActual?.tonoAsistente ?? "responsable",
+      metas: limpiarCampoInicial(usuarioActual?.metas ?? ""),
     });
   }, [usuarioActual]);
 
@@ -97,6 +105,10 @@ export default function CompleteProfilePage() {
         tieneTesisProyecto: formData.tieneTesisProyecto,
         tiempoRealDisponibleDia: formData.tiempoRealDisponibleDia,
         preferenciaMicroSesion: formData.preferenciaMicroSesion,
+        horasDisponibles: formData.horasDisponibles,
+        metodoEstudio: formData.metodoEstudio,
+        tonoAsistente: formData.tonoAsistente,
+        metas: formData.metas,
       });
 
       if (!success) {
@@ -125,7 +137,7 @@ export default function CompleteProfilePage() {
 
           <h1 className="mb-2 text-3xl font-bold">Completa tu perfil academico</h1>
           <p className="mb-3 text-gray-600">
-            Tu cuenta de Google ya quedo conectada. Solo nos faltan estos datos para personalizar tu panel.
+            Completa tus datos iniciales para que StudyFlow priorice tus tareas, horarios y recomendaciones.
           </p>
           <p className="mb-3 text-sm text-gray-500">{describirSiguientePasoPerfil(formData.tipoPerfil)}</p>
           <p className="mb-8 text-sm text-gray-500">{usuarioActual.correo}</p>
@@ -217,6 +229,73 @@ export default function CompleteProfilePage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div>
+              <Label>Horas disponibles al dia</Label>
+              <Select
+                value={formData.horasDisponibles}
+                onValueChange={(horasDisponibles) => setFormData({ ...formData, horasDisponibles })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona tu disponibilidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2-4">2-4 horas</SelectItem>
+                  <SelectItem value="4-6">4-6 horas</SelectItem>
+                  <SelectItem value="6-8">6-8 horas</SelectItem>
+                  <SelectItem value="8+">8+ horas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Metodo de estudio preferido</Label>
+              <Select
+                value={formData.metodoEstudio}
+                onValueChange={(metodoEstudio) => setFormData({ ...formData, metodoEstudio })}
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona tu metodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pomodoro">Pomodoro</SelectItem>
+                  <SelectItem value="bloques-profundos">Bloques profundos</SelectItem>
+                  <SelectItem value="repaso-espaciado">Repaso espaciado</SelectItem>
+                  <SelectItem value="mixto">Mixto</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Tono del asistente</Label>
+              <Select
+                value={formData.tonoAsistente}
+                onValueChange={(tonoAsistente: PerfilUsuario["tonoAsistente"]) =>
+                  setFormData({ ...formData, tonoAsistente })
+                }
+              >
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Selecciona el tono" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="amigable">Amigable</SelectItem>
+                  <SelectItem value="responsable">Responsable</SelectItem>
+                  <SelectItem value="frio">Frio</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="metas">Prioridad inicial</Label>
+              <Input
+                id="metas"
+                className="mt-2"
+                value={formData.metas}
+                onChange={(event) => setFormData({ ...formData, metas: event.target.value })}
+                placeholder="Ej. aprobar mis cursos y organizar mis entregas"
+                required
+              />
             </div>
 
             {PERFILES_TRABAJO_ESTUDIO.includes(formData.tipoPerfil) ? (
