@@ -265,8 +265,8 @@ function tieneTextoPerfilAcademicoValido(valor: string | null | undefined) {
 
 function usuarioRequiereCompletarPerfilAcademico(
   usuario:
-    | Pick<PerfilUsuario, "universidad" | "carrera" | "semestre" | "metas">
-    | Pick<UsuarioApi, "universidad" | "carrera" | "semestre" | "metas">
+    | Pick<PerfilUsuario, "universidad" | "carrera" | "semestre">
+    | Pick<UsuarioApi, "universidad" | "carrera" | "semestre">
     | null,
 ) {
   if (!usuario) return false;
@@ -274,8 +274,7 @@ function usuarioRequiereCompletarPerfilAcademico(
   return !(
     tieneTextoPerfilAcademicoValido(usuario.universidad) &&
     tieneTextoPerfilAcademicoValido(usuario.carrera) &&
-    tieneTextoPerfilAcademicoValido(usuario.semestre) &&
-    tieneTextoPerfilAcademicoValido(usuario.metas)
+    tieneTextoPerfilAcademicoValido(usuario.semestre)
   );
 }
 

@@ -65,7 +65,6 @@ export function requiereCompletarPerfilAcademico(usuario) {
   return !(
     tieneTextoPerfilValido(usuario?.universidad) &&
     tieneTextoPerfilValido(usuario?.carrera) &&
-    tieneTextoPerfilValido(usuario?.semestre) &&
-    tieneTextoPerfilValido(usuario?.metas)
+    tieneTextoPerfilValido(usuario?.semestre)
   );
 }
