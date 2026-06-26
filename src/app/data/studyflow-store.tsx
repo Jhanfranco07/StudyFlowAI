@@ -386,6 +386,22 @@ function normalizarFechaFormulario(fecha: string | Date | null | undefined) {
   return Number.isNaN(fecha.getTime()) ? "" : format(fecha, "yyyy-MM-dd");
 }
 
+function limitarProgreso(progreso: number) {
+  return Math.max(0, Math.min(100, Math.round(progreso)));
+}
+
+function obtenerEstadoTareaDesdeProgreso(progreso: number): EstadoTarea {
+  if (progreso >= 100) return "completed";
+  if (progreso > 0) return "in-progress";
+  return "pending";
+}
+
+function obtenerEstadoTareaGrupalDesdeProgreso(progreso: number): EstadoTareaGrupal {
+  if (progreso >= 100) return "finalizado";
+  if (progreso > 0) return "en_proceso";
+  return "pendiente";
+}
+
 function recalcularEstadoDesdeSubtareas(tarea: Tarea): Tarea {
   const subtareas = normalizarSubtareas(tarea.subtareas);
   if (!subtareas.length) {
@@ -2440,6 +2456,10 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         if (cambiosNormalizados.fechaEntrega) {
           cambiosNormalizados.fechaEntrega = normalizarFechaFormulario(cambiosNormalizados.fechaEntrega);
         }
+        if (typeof cambiosNormalizados.progreso === "number") {
+          cambiosNormalizados.progreso = limitarProgreso(cambiosNormalizados.progreso);
+          cambiosNormalizados.estado = obtenerEstadoTareaDesdeProgreso(cambiosNormalizados.progreso);
+        }
         setEstado((actual) => ({
           ...actual,
           tareas: normalizarTareas(
@@ -3236,6 +3256,10 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           ...cambios,
           fechaLimite: cambios.fechaLimite ? normalizarFechaFormulario(cambios.fechaLimite) : cambios.fechaLimite,
         };
+        if (typeof cambiosNormalizados.progreso === "number") {
+          cambiosNormalizados.progreso = limitarProgreso(cambiosNormalizados.progreso);
+          cambiosNormalizados.estado = obtenerEstadoTareaGrupalDesdeProgreso(cambiosNormalizados.progreso);
+        }
         const payloadApi = {
           ...cambiosNormalizados,
           responsableId: "responsableId" in cambiosNormalizados ? (cambiosNormalizados.responsableId || null) : undefined,
