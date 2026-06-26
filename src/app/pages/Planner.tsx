@@ -13,6 +13,17 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import WeeklyAvailabilityEditor from "../components/WeeklyAvailabilityEditor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -759,10 +770,28 @@ function EditorBloque({
         >
           Guardar cambios
         </Button>
-        <Button variant="outline" className="text-red-600 hover:text-red-700 sm:w-auto" onClick={onEliminar}>
-          <Trash2 className="mr-2 h-4 w-4" />
-          Eliminar
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="text-red-600 hover:text-red-700 sm:w-auto">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Eliminar
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar bloque</AlertDialogTitle>
+              <AlertDialogDescription>
+                Este bloque se quitara del calendario academico. No se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction className="bg-red-600 text-white hover:bg-red-700" onClick={onEliminar}>
+                Eliminar bloque
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
