@@ -527,6 +527,46 @@ function haySolapamientoBloque(
   });
 }
 
+function encontrarHuecoMicroSesion(
+  bloques: BloquePlanificador[],
+  duracion: number,
+  disponibilidadSemanal?: DisponibilidadDia[],
+) {
+  const hoy = new Date();
+  const diaActual = obtenerDiaPlanificadorDesdeFecha(hoy);
+  const horaActual = hoy.getHours() + hoy.getMinutes() / 60;
+  const diasCandidatos = Array.from({ length: 7 }, (_, indice) => (diaActual + indice) % 7);
+
+  for (const dia of diasCandidatos) {
+    for (const hora of HORAS_PREFERIDAS_REPASO) {
+      if (dia === diaActual && hora <= horaActual) {
+        continue;
+      }
+
+      if (hora + duracion > HORA_MAX_PLANIFICADOR) {
+        continue;
+      }
+
+      const disponibilidadDia = obtenerDisponibilidadDia(disponibilidadSemanal, dia);
+      const franja = obtenerFranjaDesdeHora(hora);
+      const disponible =
+        franja === "manana"
+          ? disponibilidadDia.manana
+          : franja === "tarde"
+            ? disponibilidadDia.tarde
+            : disponibilidadDia.noche;
+
+      if (!disponible || haySolapamientoBloque(bloques, dia, hora, duracion)) {
+        continue;
+      }
+
+      return { dia, horaInicio: hora };
+    }
+  }
+
+  return null;
+}
+
 function obtenerDiasCandidatosPlanificacion(fechaObjetivo: string) {
   const hoy = startOfToday();
   const fechaLimite = parseISO(fechaObjetivo);
@@ -3063,27 +3103,39 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
       },
       agendarMicroSesion: (duracion, titulo) => {
         const duracionFinal = duracion ?? estado.usuarioActual?.preferenciaMicroSesion ?? 20;
+        const duracionHoras = duracionFinal / 60;
         const proyecto = [...estado.proyectosLargos]
           .filter((item) => item.progreso < 100)
           .sort((a, b) => a.progreso - b.progreso || a.fechaLimite.localeCompare(b.fechaLimite))[0];
-        const diaActual = (new Date().getDay() + 6) % 7;
         const tituloBloque = titulo || `Micro-sesion: ${proyecto?.titulo ?? "avance de tesis/proyecto"}`;
         const microSesionExistente = estado.bloquesPlanificador.find(
           (bloque) =>
             bloque.tipo === "micro_session" &&
-            bloque.dia === diaActual &&
             bloque.titulo.trim().toLowerCase() === tituloBloque.trim().toLowerCase(),
         );
 
         if (microSesionExistente) {
-          return { ok: false, mensaje: "Esa micro-sesion ya esta reservada para hoy." };
+          return { ok: false, mensaje: "Esa micro-sesion ya esta reservada en el planificador." };
+        }
+
+        const hueco = encontrarHuecoMicroSesion(
+          estado.bloquesPlanificador,
+          duracionHoras,
+          estado.usuarioActual?.disponibilidadSemanal,
+        );
+
+        if (!hueco) {
+          return {
+            ok: false,
+            mensaje: "No encontre un espacio libre para la micro-sesion. Libera un bloque o ajusta tu disponibilidad.",
+          };
         }
 
         const bloque: BloquePlanificador = {
           id: crearId("micro"),
-          dia: diaActual,
-          horaInicio: 19,
-          duracion: duracionFinal / 60,
+          dia: hueco.dia,
+          horaInicio: hueco.horaInicio,
+          duracion: duracionHoras,
           titulo: tituloBloque,
           color: "teal",
           tipo: "micro_session",
