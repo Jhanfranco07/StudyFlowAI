@@ -426,6 +426,9 @@ function extraerPayloadTareaApi(cambios: Partial<Tarea>) {
 function extraerPayloadPerfilApi(cambios: Partial<PerfilUsuario>): Partial<UsuarioApi> {
   const {
     disponibilidadSemanal: _disponibilidadSemanal,
+    plan: _plan,
+    rol: _rol,
+    id: _id,
     ...payload
   } = cambios;
 

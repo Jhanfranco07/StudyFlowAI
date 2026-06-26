@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Activity, Copy, Link2, Plus, ShieldCheck, Trash2, UsersRound } from "lucide-react";
+import { Activity, Copy, Link2, Pencil, Plus, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { PLANES, canUseTeamProjectsAdvanced, isPremiumPlus } from "../data/plan-rules";
 import {
   formatearFechaCorta,
   useStudyFlow,
   type EstadoTareaGrupal,
+  type ProyectoGrupal,
   type RolIntegranteProyecto,
 } from "../data/studyflow-store";
 import { Badge } from "../components/ui/badge";
@@ -68,12 +69,14 @@ export default function TeamProjects() {
     cursos,
     proyectosGrupales,
     agregarProyectoGrupal,
+    actualizarProyectoGrupal,
     eliminarProyectoGrupal,
     agregarIntegranteProyectoGrupal,
     agregarTareaProyectoGrupal,
     actualizarTareaProyectoGrupal,
   } = useStudyFlow();
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [proyectoEnEdicion, setProyectoEnEdicion] = useState<ProyectoGrupal | null>(null);
   const [form, setForm] = useState({ nombre: "", descripcion: "", cursoId: "none", fechaLimite: "" });
   const [nuevoIntegrante, setNuevoIntegrante] = useState<Record<string, string>>({});
   const [nuevoRol, setNuevoRol] = useState<Record<string, RolIntegranteProyecto>>({});
@@ -274,6 +277,58 @@ export default function TeamProjects() {
                       </div>
                       <Progress value={avance} />
                     </div>
+                    <Dialog
+                      open={proyectoEnEdicion?.id === proyecto.id}
+                      onOpenChange={(abierto) => !abierto && setProyectoEnEdicion(null)}
+                    >
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full" onClick={() => setProyectoEnEdicion(proyecto)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar tablero
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Editar trabajo grupal</DialogTitle>
+                        </DialogHeader>
+                        {proyectoEnEdicion ? (
+                          <FormularioTrabajoGrupal
+                            cursos={cursos.map((curso) => ({ id: curso.id, nombre: curso.nombre }))}
+                            valor={{
+                              nombre: proyectoEnEdicion.nombre,
+                              descripcion: proyectoEnEdicion.descripcion,
+                              cursoId: proyectoEnEdicion.cursoId ?? "none",
+                              fechaLimite: proyectoEnEdicion.fechaLimite,
+                            }}
+                            onChange={(valor) =>
+                              setProyectoEnEdicion((actual) =>
+                                actual
+                                  ? {
+                                      ...actual,
+                                      nombre: valor.nombre,
+                                      descripcion: valor.descripcion,
+                                      cursoId: valor.cursoId === "none" ? undefined : valor.cursoId,
+                                      fechaLimite: valor.fechaLimite,
+                                    }
+                                  : actual,
+                              )
+                            }
+                            textoBoton="Guardar cambios"
+                            disabled={!proyectoEnEdicion.nombre || !proyectoEnEdicion.fechaLimite}
+                            onGuardar={() => {
+                              if (!proyectoEnEdicion) return;
+                              actualizarProyectoGrupal(proyectoEnEdicion.id, {
+                                nombre: proyectoEnEdicion.nombre,
+                                descripcion: proyectoEnEdicion.descripcion,
+                                cursoId: proyectoEnEdicion.cursoId,
+                                fechaLimite: proyectoEnEdicion.fechaLimite,
+                              });
+                              setProyectoEnEdicion(null);
+                            }}
+                          />
+                        ) : null}
+                      </DialogContent>
+                    </Dialog>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="w-full border-red-200 text-red-600 hover:bg-red-50">
@@ -507,5 +562,67 @@ function Stat({ label, value }: { label: string; value: string }) {
         <p className="mt-1 text-2xl font-bold">{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+function FormularioTrabajoGrupal({
+  cursos,
+  valor,
+  onChange,
+  onGuardar,
+  textoBoton,
+  disabled = false,
+}: {
+  cursos: Array<{ id: string; nombre: string }>;
+  valor: {
+    nombre: string;
+    descripcion: string;
+    cursoId: string;
+    fechaLimite: string;
+  };
+  onChange: (valor: {
+    nombre: string;
+    descripcion: string;
+    cursoId: string;
+    fechaLimite: string;
+  }) => void;
+  onGuardar: () => void;
+  textoBoton: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Nombre</Label>
+        <Input className="mt-2" value={valor.nombre} onChange={(event) => onChange({ ...valor, nombre: event.target.value })} />
+      </div>
+      <div>
+        <Label>Curso asociado</Label>
+        <Select value={valor.cursoId} onValueChange={(cursoId) => onChange({ ...valor, cursoId })}>
+          <SelectTrigger className="mt-2">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin curso</SelectItem>
+            {cursos.map((curso) => (
+              <SelectItem key={curso.id} value={curso.id}>
+                {curso.nombre}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Fecha limite</Label>
+        <Input type="date" className="mt-2" value={valor.fechaLimite} onChange={(event) => onChange({ ...valor, fechaLimite: event.target.value })} />
+      </div>
+      <div>
+        <Label>Descripcion</Label>
+        <Textarea className="mt-2" value={valor.descripcion} onChange={(event) => onChange({ ...valor, descripcion: event.target.value })} />
+      </div>
+      <Button className="w-full" onClick={onGuardar} disabled={disabled}>
+        {textoBoton}
+      </Button>
+    </div>
   );
 }

@@ -272,19 +272,15 @@ export default function Settings() {
           </div>
           <div>
             <Label>Plan actual</Label>
-            <Select
-              value={perfil.plan}
-              onValueChange={(plan: PerfilUsuario["plan"]) => setPerfil({ ...perfil, plan })}
-            >
-              <SelectTrigger className="mt-2">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="gratis">Gratis</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
-                <SelectItem value="premium_plus">Premium Plus</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className={resumenPlan?.estilo}>{resumenPlan?.etiqueta}</Badge>
+                <span className="text-sm text-slate-500">Solo lectura</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                Los cambios de plan se gestionan desde administracion.
+              </p>
+            </div>
           </div>
           <div>
             <Label>Objetivo academico principal</Label>
