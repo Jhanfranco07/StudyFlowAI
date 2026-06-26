@@ -368,9 +368,9 @@ function recalcularEstadoDesdeSubtareas(tarea: Tarea): Tarea {
   const estado: EstadoTarea =
     progreso >= 100
       ? "completed"
-      : tarea.estado === "completed"
+      : progreso > 0
         ? "in-progress"
-        : tarea.estado;
+        : "pending";
 
   return {
     ...tarea,

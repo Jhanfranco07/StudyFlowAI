@@ -1293,6 +1293,29 @@ async function obtenerTareaPorId(tareaId) {
   return tareas[0] ?? null;
 }
 
+async function sincronizarResumenChecklistTarea(tareaId) {
+  const resultado = await pool.query(
+    `
+    select
+      count(*)::int as total,
+      count(*) filter (where completada)::int as completadas
+    from subtareas
+    where tarea_id = $1
+    `,
+    [tareaId],
+  );
+
+  const total = Number(resultado.rows[0]?.total ?? 0);
+  const completadas = Number(resultado.rows[0]?.completadas ?? 0);
+  const progreso = total > 0 ? Math.round((completadas / total) * 100) : 0;
+  const estado = progreso >= 100 ? "completed" : progreso > 0 ? "in-progress" : "pending";
+
+  await pool.query(
+    "update tareas set progreso = $1, estado = $2 where id = $3",
+    [progreso, estado, tareaId],
+  );
+}
+
 function crearCodigoInvitacion() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -3167,6 +3190,7 @@ app.post("/api/tareas/:tareaId/subtareas", async (request, response) => {
     }
 
     await pool.query("insert into subtareas (tarea_id, titulo) values ($1, $2)", [request.params.tareaId, titulo]);
+    await sincronizarResumenChecklistTarea(request.params.tareaId);
     response.status(201).json(await obtenerTareaPorId(request.params.tareaId));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo crear la subtarea.", error: error.message });
@@ -3202,6 +3226,7 @@ app.patch("/api/subtareas/:subtareaId", async (request, response) => {
       return;
     }
 
+    await sincronizarResumenChecklistTarea(resultado.rows[0].tareaId);
     response.json(await obtenerTareaPorId(resultado.rows[0].tareaId));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo actualizar la subtarea.", error: error.message });
@@ -3222,6 +3247,7 @@ app.delete("/api/subtareas/:subtareaId", async (request, response) => {
       return;
     }
 
+    await sincronizarResumenChecklistTarea(resultado.rows[0].tareaId);
     response.json(await obtenerTareaPorId(resultado.rows[0].tareaId));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo eliminar la subtarea.", error: error.message });

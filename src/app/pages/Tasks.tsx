@@ -14,6 +14,17 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
@@ -409,6 +420,11 @@ export default function Tasks() {
                               )
                             }
                             textoBoton="Guardar cambios"
+                            confirmacion={{
+                              titulo: "Guardar cambios de la tarea",
+                              descripcion: `Se actualizara "${tareaEnEdicion.titulo}" con la informacion editada.`,
+                              textoAccion: "Guardar cambios",
+                            }}
                             onGuardar={() => {
                               if (!tareaEnEdicion) return;
                               actualizarTarea(tareaEnEdicion.id, {
@@ -524,15 +540,7 @@ export default function Tasks() {
                     >
                       {estadoVisual === "completed" ? "Reabrir" : "Completar"}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="w-full border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
-                      onClick={() => eliminarTarea(tarea.id)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Eliminar
-                    </Button>
+                    <ConfirmarEliminacionTarea tarea={tarea} onConfirmar={() => eliminarTarea(tarea.id)} />
                   </div>
                 </div>
               </CardContent>
@@ -792,15 +800,7 @@ export default function Tasks() {
                           >
                             Reabrir
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
-                            onClick={() => eliminarTarea(tarea.id)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </Button>
+                          <ConfirmarEliminacionTarea tarea={tarea} onConfirmar={() => eliminarTarea(tarea.id)} />
                         </div>
                       </div>
                     </CardContent>
@@ -812,6 +812,37 @@ export default function Tasks() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+function ConfirmarEliminacionTarea({ tarea, onConfirmar }: { tarea: Tarea; onConfirmar: () => void }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full border-red-200 text-red-600 hover:bg-red-50 sm:w-auto"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Eliminar
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Eliminar tarea</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta accion eliminara "{tarea.titulo}" y su checklist de avance. No se puede deshacer.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction className="bg-red-600 text-white hover:bg-red-700" onClick={onConfirmar}>
+            Eliminar tarea
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -920,6 +951,7 @@ function FormularioTareaCard({
   onChange,
   onGuardar,
   textoBoton,
+  confirmacion,
   mostrarEstado = true,
 }: {
   cursos: Array<{ id: string; nombre: string }>;
@@ -927,8 +959,22 @@ function FormularioTareaCard({
   onChange: (valor: FormularioTarea) => void;
   onGuardar: () => void;
   textoBoton: string;
+  confirmacion?: {
+    titulo: string;
+    descripcion: string;
+    textoAccion: string;
+  };
   mostrarEstado?: boolean;
 }) {
+  const botonGuardar = (
+    <Button
+      className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+      onClick={confirmacion ? undefined : onGuardar}
+    >
+      {textoBoton}
+    </Button>
+  );
+
   return (
     <div className="space-y-4">
       <div>
@@ -1027,9 +1073,25 @@ function FormularioTareaCard({
         </div>
       )}
 
-      <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600" onClick={onGuardar}>
-        {textoBoton}
-      </Button>
+      {confirmacion ? (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>{botonGuardar}</AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{confirmacion.titulo}</AlertDialogTitle>
+              <AlertDialogDescription>{confirmacion.descripcion}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction className="bg-blue-600 text-white hover:bg-blue-700" onClick={onGuardar}>
+                {confirmacion.textoAccion}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : (
+        botonGuardar
+      )}
     </div>
   );
 }

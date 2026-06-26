@@ -13,6 +13,17 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 
@@ -267,23 +278,61 @@ export default function CourseDetail() {
                       }}
                     />
                   </div>
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600" onClick={guardarCambiosCurso}>
-                    Guardar cambios
-                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
+                        Guardar cambios
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Guardar cambios del curso</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Se actualizaran los datos de "{curso.nombre}" con la informacion editada.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-blue-600 text-white hover:bg-blue-700"
+                          onClick={guardarCambiosCurso}
+                        >
+                          Guardar cambios
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </DialogContent>
             </Dialog>
-            <Button
-              variant="outline"
-              className="text-red-600 hover:text-red-700"
-              onClick={() => {
-                eliminarCurso(curso.id);
-                navigate("/app/courses");
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" className="text-red-600 hover:text-red-700">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Eliminar curso</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta accion eliminara "{curso.nombre}" y tambien quitara sus tareas y examenes relacionados. No se puede deshacer.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-red-600 text-white hover:bg-red-700"
+                    onClick={() => {
+                      eliminarCurso(curso.id);
+                      navigate("/app/courses");
+                    }}
+                  >
+                    Eliminar curso
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </div>
