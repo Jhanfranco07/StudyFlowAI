@@ -31,7 +31,7 @@ export const PLANES: Record<
   },
   premium_plus: {
     etiqueta: "Premium Plus",
-    descripcion: "Planificacion automatica de trabajo y estudio, micro-sesiones, tesis y proyectos largos.",
+    descripcion: "Planificacion automatica de trabajo y estudio, micro-sesiones para tesis y proyectos largos.",
     limiteCursos: "ilimitado",
     limiteProyectosGrupales: "ilimitado",
   },
@@ -169,7 +169,7 @@ export function obtenerTiposBloqueDisponibles(usuario: Pick<PerfilUsuario, "plan
 export function obtenerMensajeRecomendacionPlan(usuario: Pick<PerfilUsuario, "tipoPerfil" | "plan"> | null | undefined) {
   if (!usuario || !isPostgradProfile(usuario) || isPremiumPlus(usuario)) return null;
 
-  return "Por tu perfil, te recomendamos Premium Plus para organizar trabajo, estudio, tesis y micro-sesiones; pero puedes continuar con tu plan actual.";
+  return "Por tu perfil, te recomendamos Premium Plus para organizar trabajo, estudio, tesis y micro-sesiones de proyectos largos; pero puedes continuar con tu plan actual.";
 }
 
 export function obtenerUpsellPremiumPlus(funcion: string) {

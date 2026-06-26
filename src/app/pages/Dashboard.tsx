@@ -141,6 +141,13 @@ export default function Dashboard() {
       return;
     }
 
+    if (resultado.mensaje.toLowerCase().includes("ya esta reservada")) {
+      toast.info("Micro-sesión ya reservada", {
+        description: resultado.mensaje,
+      });
+      return;
+    }
+
     toast.error("No se pudo agendar", {
       description: resultado.mensaje,
     });

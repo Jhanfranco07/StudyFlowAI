@@ -3051,25 +3051,24 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
       },
       sugerirMicroSesion: () => {
         const duracion = estado.usuarioActual?.preferenciaMicroSesion ?? 20;
-        const tarea = [...estado.tareas]
-          .filter((item) => obtenerEstadoVisualTarea(item) !== "completed")
-          .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega))[0];
+        const proyecto = [...estado.proyectosLargos]
+          .filter((item) => item.progreso < 100)
+          .sort((a, b) => a.progreso - b.progreso || a.fechaLimite.localeCompare(b.fechaLimite))[0];
         return {
           duracion,
-          tareaId: tarea?.id,
-          mensaje: tarea
-            ? `Hoy tienes poco tiempo disponible. Te recomendamos una micro-sesion de ${duracion} minutos para avanzar "${tarea.titulo}".`
-            : `Puedes retomar el ritmo con una micro-sesion de ${duracion} minutos.`,
+          mensaje: proyecto
+            ? `Hoy tienes poco tiempo disponible. Te recomendamos una micro-sesion de ${duracion} minutos para avanzar "${proyecto.titulo}".`
+            : `Puedes retomar el ritmo con una micro-sesion de ${duracion} minutos para tu tesis o proyecto largo.`,
         };
       },
       agendarMicroSesion: (duracion, titulo) => {
         const duracionFinal = duracion ?? estado.usuarioActual?.preferenciaMicroSesion ?? 20;
-        const tarea = [...estado.tareas]
-          .filter((item) => obtenerEstadoVisualTarea(item) !== "completed")
-          .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega))[0];
-        const curso = estado.cursos.find((item) => item.id === tarea?.cursoId);
+        const proyecto = [...estado.proyectosLargos]
+          .filter((item) => item.progreso < 100)
+          .sort((a, b) => a.progreso - b.progreso || a.fechaLimite.localeCompare(b.fechaLimite))[0];
+        const curso = estado.cursos.find((item) => item.id === proyecto?.cursoId);
         const diaActual = (new Date().getDay() + 6) % 7;
-        const tituloBloque = titulo || `Micro-sesion: ${tarea?.titulo ?? "retomar avance"}`;
+        const tituloBloque = titulo || `Micro-sesion: ${proyecto?.titulo ?? "avance de tesis/proyecto"}`;
         const microSesionExistente = estado.bloquesPlanificador.find(
           (bloque) =>
             bloque.tipo === "micro_session" &&
@@ -3087,7 +3086,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           horaInicio: 19,
           duracion: duracionFinal / 60,
           titulo: tituloBloque,
-          cursoId: tarea?.cursoId,
+          cursoId: proyecto?.cursoId,
           color: curso?.color ?? "teal",
           tipo: "micro_session",
         };
@@ -3096,9 +3095,9 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         setEstado((actual) => ({ ...actual, bloquesPlanificador: bloquesActualizados }));
         guardarPlanificadorEnBackend(bloquesActualizados);
         if (usuarioId) {
-          api.agendarMicroSesion(usuarioId, { duracion: duracionFinal, titulo: bloque.titulo, tareaId: tarea?.id }).catch(() => {});
+          api.agendarMicroSesion(usuarioId, { duracion: duracionFinal, titulo: bloque.titulo }).catch(() => {});
         }
-        return { ok: true, mensaje: `Agende una micro-sesion de ${duracionFinal} minutos.` };
+        return { ok: true, mensaje: `Agende una micro-sesion de ${duracionFinal} minutos para tu tesis o proyecto.` };
       },
       marcarNotificacionLeida: (notificacionId) => {
         setEstado((actual) => ({

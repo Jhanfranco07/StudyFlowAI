@@ -166,7 +166,7 @@ const planes = [
     caracteristicas: [
       "Todo lo del Premium.",
       "IA que adapta el horario según trabajo y disponibilidad.",
-      "Micro-sesiones de estudio.",
+      "Micro-sesiones para tesis y proyectos largos.",
       "Seguimiento de tesis y proyectos largos.",
       "Dashboard avanzado trabajo + estudio.",
       "Trabajo colaborativo avanzado.",
