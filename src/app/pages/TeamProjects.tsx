@@ -72,6 +72,7 @@ export default function TeamProjects() {
     actualizarProyectoGrupal,
     eliminarProyectoGrupal,
     agregarIntegranteProyectoGrupal,
+    eliminarIntegranteProyectoGrupal,
     agregarTareaProyectoGrupal,
     actualizarTareaProyectoGrupal,
   } = useStudyFlow();
@@ -414,12 +415,50 @@ export default function TeamProjects() {
                   </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {avancePorIntegrante.map(({ integrante, promedio }) => (
-                    <Badge key={integrante.id} className="bg-blue-50 text-blue-700">
-                      {integrante.nombre}: {promedio}% - {etiquetaRolPermiso(integrante.rolPermiso)}
-                    </Badge>
-                  ))}
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {avancePorIntegrante.map(({ integrante, promedio }) => {
+                    const tareasAsignadas = proyecto.tareas.filter((tarea) => tarea.responsableId === integrante.id).length;
+
+                    return (
+                      <div key={integrante.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-slate-900">{integrante.nombre}</p>
+                          <p className="text-xs text-slate-500">
+                            {promedio}% - {etiquetaRolPermiso(integrante.rolPermiso)} - {tareasAsignadas} tarea{tareasAsignadas === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 shrink-0 rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Quitar integrante</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se quitara "{integrante.nombre}" del trabajo grupal. Sus tareas asignadas quedaran sin responsable.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 text-white hover:bg-red-700"
+                                onClick={() => eliminarIntegranteProyectoGrupal(integrante.id)}
+                              >
+                                Quitar integrante
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">

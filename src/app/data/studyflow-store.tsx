@@ -183,6 +183,7 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
     rol?: string,
     rolPermiso?: ProyectoGrupal["integrantes"][number]["rolPermiso"],
   ) => void;
+  eliminarIntegranteProyectoGrupal: (integranteId: string) => void;
   agregarTareaProyectoGrupal: (proyectoId: string, titulo: string, fechaLimite: string, responsableId?: string) => void;
   actualizarTareaProyectoGrupal: (tareaId: string, cambios: Partial<ProyectoGrupal["tareas"][number]>) => void;
   sugerirMicroSesion: () => { duracion: number; mensaje: string; tareaId?: string };
@@ -354,6 +355,22 @@ function normalizarSubtareas(subtareas: Subtarea[] | null | undefined): Subtarea
     .filter((subtarea) => subtarea.titulo.length > 0);
 }
 
+function normalizarFechaFormulario(fecha: string | Date | null | undefined) {
+  if (!fecha) return "";
+
+  if (typeof fecha === "string") {
+    const valor = fecha.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(valor)) {
+      return valor.slice(0, 10);
+    }
+
+    const parseada = new Date(valor);
+    return Number.isNaN(parseada.getTime()) ? valor : format(parseada, "yyyy-MM-dd");
+  }
+
+  return Number.isNaN(fecha.getTime()) ? "" : format(fecha, "yyyy-MM-dd");
+}
+
 function recalcularEstadoDesdeSubtareas(tarea: Tarea): Tarea {
   const subtareas = normalizarSubtareas(tarea.subtareas);
   if (!subtareas.length) {
@@ -383,9 +400,17 @@ function recalcularEstadoDesdeSubtareas(tarea: Tarea): Tarea {
 function normalizarTareaApi(tarea: TareaApi, subtareas?: Subtarea[] | null): Tarea {
   return {
     ...tarea,
+    fechaEntrega: normalizarFechaFormulario(tarea.fechaEntrega),
     prioridad: tarea.prioridad,
     estado: tarea.estado,
     subtareas: normalizarSubtareas(subtareas ?? tarea.subtareas),
+  };
+}
+
+function normalizarExamen(examen: Examen): Examen {
+  return {
+    ...examen,
+    fecha: normalizarFechaFormulario(examen.fecha),
   };
 }
 
@@ -396,6 +421,7 @@ function crearCodigoInvitacionLocal() {
 function normalizarProyectoLargoApi(proyecto: ProyectoLargoApi): ProyectoLargo {
   return {
     ...proyecto,
+    fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
     pasos: proyecto.pasos ?? [],
   };
 }
@@ -403,8 +429,12 @@ function normalizarProyectoLargoApi(proyecto: ProyectoLargoApi): ProyectoLargo {
 function normalizarProyectoGrupalApi(proyecto: ProyectoGrupalApi): ProyectoGrupal {
   return {
     ...proyecto,
+    fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
     integrantes: proyecto.integrantes ?? [],
-    tareas: proyecto.tareas ?? [],
+    tareas: (proyecto.tareas ?? []).map((tarea) => ({
+      ...tarea,
+      fechaLimite: normalizarFechaFormulario(tarea.fechaLimite),
+    })),
   };
 }
 
@@ -1757,6 +1787,7 @@ function normalizarTareas(tareas: Tarea[]): Tarea[] {
   return tareas.map((tarea) => {
     const tareaNormalizada = recalcularEstadoDesdeSubtareas({
       ...tarea,
+      fechaEntrega: normalizarFechaFormulario(tarea.fechaEntrega),
       subtareas: normalizarSubtareas(tarea.subtareas),
     });
 
@@ -1874,7 +1905,7 @@ function integrarContexto(estadoActual: EstadoStudyFlow, contexto: ContextoApi):
       : estadoActual.usuarioActual,
     cursos,
     tareas: normalizarTareas(tareasIntegradas),
-    examenes: contexto.examenes,
+    examenes: contexto.examenes.map(normalizarExamen),
     bloquesPlanificador: sincronizarBloquesClaseConCursos(cursos, contexto.bloquesPlanificador),
     notificaciones: contexto.notificaciones,
     mensajesChat: contexto.mensajesChat,
@@ -1904,8 +1935,19 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         usuarioActual: normalizarUsuarioPersistido(parseado.usuarioActual),
         cursos,
         tareas: normalizarTareas(parseado.tareas ?? []),
-        proyectosLargos: parseado.proyectosLargos ?? [],
-        proyectosGrupales: parseado.proyectosGrupales ?? [],
+        examenes: (parseado.examenes ?? []).map(normalizarExamen),
+        proyectosLargos: (parseado.proyectosLargos ?? []).map((proyecto) => ({
+          ...proyecto,
+          fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
+        })),
+        proyectosGrupales: (parseado.proyectosGrupales ?? []).map((proyecto) => ({
+          ...proyecto,
+          fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
+          tareas: (proyecto.tareas ?? []).map((tarea) => ({
+            ...tarea,
+            fechaLimite: normalizarFechaFormulario(tarea.fechaLimite),
+          })),
+        })),
         bloquesPlanificador: sincronizarBloquesClaseConCursos(
           cursos,
           parseado.bloquesPlanificador ?? [],
@@ -2312,6 +2354,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         const tareaLocal: Tarea = {
           ...tarea,
           id: crearId("task"),
+          fechaEntrega: normalizarFechaFormulario(tarea.fechaEntrega),
           estado: tarea.estado ?? "pending",
           progreso: tarea.progreso ?? 0,
           subtareas: normalizarSubtareas(tarea.subtareas),
@@ -2338,7 +2381,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
               cursoId: tarea.cursoId,
               titulo: tarea.titulo,
               descripcion: tarea.descripcion,
-              fechaEntrega: tarea.fechaEntrega,
+              fechaEntrega: normalizarFechaFormulario(tarea.fechaEntrega),
               prioridad: tarea.prioridad,
               horasEstimadas: tarea.horasEstimadas,
             })
@@ -2364,6 +2407,9 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           "subtareas" in cambios
             ? { ...cambios, subtareas: normalizarSubtareas(cambios.subtareas) }
             : cambios;
+        if (cambiosNormalizados.fechaEntrega) {
+          cambiosNormalizados.fechaEntrega = normalizarFechaFormulario(cambiosNormalizados.fechaEntrega);
+        }
         setEstado((actual) => ({
           ...actual,
           tareas: normalizarTareas(
@@ -2886,7 +2932,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }
       },
       agregarExamen: (examen) => {
-        const examenLocal: Examen = { ...examen, id: crearId("exam") };
+        const examenLocal: Examen = normalizarExamen({ ...examen, id: crearId("exam") });
         setEstado((actual) => ({
           ...actual,
           examenes: [...actual.examenes, examenLocal].sort((a, b) => a.fecha.localeCompare(b.fecha)),
@@ -2898,7 +2944,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
               estudianteId: usuarioId,
               cursoId: examen.cursoId,
               titulo: examen.titulo,
-              fecha: examen.fecha,
+              fecha: normalizarFechaFormulario(examen.fecha),
               hora: examen.hora,
               temas: examen.temas,
               preparacion: examen.preparacion,
@@ -2907,7 +2953,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
               setEstado((actual) => ({
                 ...actual,
                 examenes: actual.examenes
-                  .map((item) => (item.id === examenLocal.id ? examenBackend : item))
+                  .map((item) => (item.id === examenLocal.id ? normalizarExamen(examenBackend) : item))
                   .sort((a, b) => a.fecha.localeCompare(b.fecha)),
               }));
             })
@@ -2915,14 +2961,18 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }
       },
       actualizarExamen: (examenId, cambios) => {
+        const cambiosNormalizados = {
+          ...cambios,
+          fecha: cambios.fecha ? normalizarFechaFormulario(cambios.fecha) : cambios.fecha,
+        };
         setEstado((actual) => ({
           ...actual,
           examenes: actual.examenes
-            .map((examen) => (examen.id === examenId ? { ...examen, ...cambios } : examen))
+            .map((examen) => (examen.id === examenId ? normalizarExamen({ ...examen, ...cambiosNormalizados }) : examen))
             .sort((a, b) => a.fecha.localeCompare(b.fecha)),
         }));
 
-        api.actualizarExamen(examenId, cambios).catch(() => {});
+        api.actualizarExamen(examenId, cambiosNormalizados).catch(() => {});
       },
       eliminarExamen: (examenId) => {
         setEstado((actual) => ({
@@ -2941,7 +2991,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           titulo: proyecto.titulo,
           descripcion: proyecto.descripcion,
           tipo: proyecto.tipo,
-          fechaLimite: proyecto.fechaLimite,
+          fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
           faseActual: proyecto.faseActual ?? "investigacion",
           progreso: 0,
           ultimoAvance: new Date().toISOString(),
@@ -2960,13 +3010,17 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
       },
       actualizarProyectoLargo: (proyectoId, cambios) => {
         if (!canUseLongProjects(estado.usuarioActual)) return;
+        const cambiosNormalizados = {
+          ...cambios,
+          fechaLimite: cambios.fechaLimite ? normalizarFechaFormulario(cambios.fechaLimite) : cambios.fechaLimite,
+        };
         setEstado((actual) => ({
           ...actual,
           proyectosLargos: actual.proyectosLargos.map((proyecto) =>
-            proyecto.id === proyectoId ? recalcularProyectoLargo({ ...proyecto, ...cambios }) : proyecto,
+            proyecto.id === proyectoId ? recalcularProyectoLargo({ ...proyecto, ...cambiosNormalizados }) : proyecto,
           ),
         }));
-        api.actualizarProyectoLargo(proyectoId, cambios).catch(() => {});
+        api.actualizarProyectoLargo(proyectoId, cambiosNormalizados).catch(() => {});
       },
       eliminarProyectoLargo: (proyectoId) => {
         if (!canUseLongProjects(estado.usuarioActual)) return;
@@ -3023,7 +3077,7 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           cursoId: proyecto.cursoId,
           nombre: proyecto.nombre,
           descripcion: proyecto.descripcion,
-          fechaLimite: proyecto.fechaLimite,
+          fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
           codigoInvitacion: crearCodigoInvitacionLocal(),
           integrantes: [],
           tareas: [],
@@ -3039,13 +3093,17 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }).catch(() => {});
       },
       actualizarProyectoGrupal: (proyectoId, cambios) => {
+        const cambiosNormalizados = {
+          ...cambios,
+          fechaLimite: cambios.fechaLimite ? normalizarFechaFormulario(cambios.fechaLimite) : cambios.fechaLimite,
+        };
         setEstado((actual) => ({
           ...actual,
           proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
-            proyecto.id === proyectoId ? { ...proyecto, ...cambios } : proyecto,
+            proyecto.id === proyectoId ? { ...proyecto, ...cambiosNormalizados } : proyecto,
           ),
         }));
-        api.actualizarTrabajoGrupal(proyectoId, cambios).catch(() => {});
+        api.actualizarTrabajoGrupal(proyectoId, cambiosNormalizados).catch(() => {});
       },
       eliminarProyectoGrupal: (proyectoId) => {
         setEstado((actual) => ({
@@ -3064,13 +3122,34 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }));
         api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, rol, rolPermiso }).catch(() => {});
       },
+      eliminarIntegranteProyectoGrupal: (integranteId) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            integrantes: proyecto.integrantes.filter((integrante) => integrante.id !== integranteId),
+            tareas: proyecto.tareas.map((tarea) =>
+              tarea.responsableId === integranteId ? { ...tarea, responsableId: undefined } : tarea,
+            ),
+          })),
+        }));
+
+        api.eliminarIntegranteTrabajoGrupal(integranteId).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
+      },
       agregarTareaProyectoGrupal: (proyectoId, titulo, fechaLimite, responsableId) => {
         const tarea = {
           id: crearId("team-task"),
           proyectoId,
           titulo,
           responsableId,
-          fechaLimite,
+          fechaLimite: normalizarFechaFormulario(fechaLimite),
           estado: "pendiente" as const,
           progreso: 0,
         };
@@ -3080,17 +3159,21 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             proyecto.id === proyectoId ? { ...proyecto, tareas: [...proyecto.tareas, tarea] } : proyecto,
           ),
         }));
-        api.crearTareaTrabajoGrupal(proyectoId, { titulo, fechaLimite, responsableId }).catch(() => {});
+        api.crearTareaTrabajoGrupal(proyectoId, { titulo, fechaLimite: normalizarFechaFormulario(fechaLimite), responsableId }).catch(() => {});
       },
       actualizarTareaProyectoGrupal: (tareaId, cambios) => {
+        const cambiosNormalizados = {
+          ...cambios,
+          fechaLimite: cambios.fechaLimite ? normalizarFechaFormulario(cambios.fechaLimite) : cambios.fechaLimite,
+        };
         setEstado((actual) => ({
           ...actual,
           proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
             ...proyecto,
-            tareas: proyecto.tareas.map((tarea) => (tarea.id === tareaId ? { ...tarea, ...cambios } : tarea)),
+            tareas: proyecto.tareas.map((tarea) => (tarea.id === tareaId ? { ...tarea, ...cambiosNormalizados } : tarea)),
           })),
         }));
-        api.actualizarTareaTrabajoGrupal(tareaId, cambios).catch(() => {});
+        api.actualizarTareaTrabajoGrupal(tareaId, cambiosNormalizados).catch(() => {});
       },
       sugerirMicroSesion: () => {
         const duracion = estado.usuarioActual?.preferenciaMicroSesion ?? 20;

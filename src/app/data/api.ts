@@ -651,6 +651,11 @@ export const api = {
       body: JSON.stringify(payload),
     });
   },
+  eliminarIntegranteTrabajoGrupal(integranteId: string) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/integrantes/${integranteId}`, {
+      method: "DELETE",
+    });
+  },
   crearTareaTrabajoGrupal(
     proyectoId: string,
     payload: { titulo: string; responsableId?: string; fechaLimite: string },
@@ -662,7 +667,13 @@ export const api = {
   },
   actualizarTareaTrabajoGrupal(
     tareaId: string,
-    payload: { estado?: ProyectoGrupalApi["tareas"][number]["estado"]; progreso?: number; responsableId?: string },
+    payload: {
+      titulo?: string;
+      fechaLimite?: string;
+      estado?: ProyectoGrupalApi["tareas"][number]["estado"];
+      progreso?: number;
+      responsableId?: string;
+    },
   ) {
     return request<ProyectoGrupalApi>(`/api/trabajos-grupales/tareas/${tareaId}`, {
       method: "PATCH",

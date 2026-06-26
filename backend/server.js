@@ -3547,6 +3547,27 @@ app.post("/api/trabajos-grupales/:proyectoId/integrantes", async (request, respo
   }
 });
 
+app.delete("/api/trabajos-grupales/integrantes/:integranteId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const integrante = await pool.query(
+      "select proyecto_id from integrantes_proyecto where id = $1",
+      [request.params.integranteId],
+    );
+
+    if (!integrante.rows.length) {
+      return response.status(404).json({ mensaje: "Integrante no encontrado." });
+    }
+
+    const proyectoId = integrante.rows[0].proyecto_id;
+    await pool.query("delete from integrantes_proyecto where id = $1", [request.params.integranteId]);
+    response.json(await obtenerProyectoGrupalPorId(proyectoId));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo quitar el integrante.", error: error.message });
+  }
+});
+
 app.post("/api/trabajos-grupales/:proyectoId/tareas", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
