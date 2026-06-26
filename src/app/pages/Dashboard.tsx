@@ -7,6 +7,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { toast } from "sonner";
 import {
   AlertCircle,
   BookOpen,
@@ -131,6 +132,20 @@ export default function Dashboard() {
       : "Crea bloques de estudio para empezar a ver recomendaciones útiles.",
   ];
 
+  const manejarMicroSesion = () => {
+    const resultado = agendarMicroSesion();
+    if (resultado.ok) {
+      toast.success("Micro-sesión agendada", {
+        description: resultado.mensaje,
+      });
+      return;
+    }
+
+    toast.error("No se pudo agendar", {
+      description: resultado.mensaje,
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -201,7 +216,7 @@ export default function Dashboard() {
               <p className="text-sm text-white/70">Fatiga estimada</p>
               <p className="mt-2 text-2xl font-bold">{indiceFatiga}/100</p>
               <p className="mt-2 text-xs text-white/65">Riesgo {riesgoSaturacion}</p>
-              <Button size="sm" variant="secondary" className="mt-3" onClick={() => agendarMicroSesion()} disabled={!canUseMicroSessions(usuarioActual)}>
+              <Button size="sm" variant="secondary" className="mt-3" onClick={manejarMicroSesion} disabled={!canUseMicroSessions(usuarioActual)}>
                 {canUseMicroSessions(usuarioActual) ? "Agendar micro-sesion" : "Ver Premium Plus"}
               </Button>
             </div>
