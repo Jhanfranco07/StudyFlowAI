@@ -15,15 +15,23 @@ import {
 import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
 import {
   DURACIONES_MICRO_SESION,
+  ETIQUETAS_BLOQUE,
   OBJETIVOS_ACADEMICOS,
   PERFILES_TRABAJO_ESTUDIO,
+  PLANES,
   TIPOS_PERFIL,
+  canUseLongProjects,
+  canUseMicroSessions,
+  canUseTeamProjectsAdvanced,
+  canUseWorkStudyAutoplanning,
   obtenerMensajeRecomendacionPlan,
+  obtenerTiposBloqueDisponibles,
 } from "../data/plan-rules";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import WeeklyAvailabilityEditor from "../components/WeeklyAvailabilityEditor";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -272,15 +280,29 @@ export default function Settings() {
           </div>
           <div>
             <Label>Plan actual</Label>
-            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className={resumenPlan?.estilo}>{resumenPlan?.etiqueta}</Badge>
-                <span className="text-sm text-slate-500">Solo lectura</span>
-              </div>
-              <p className="mt-2 text-sm text-slate-600">
-                Los cambios de plan se gestionan desde administracion.
-              </p>
-            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  type="button"
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/50"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge className={resumenPlan?.estilo}>{resumenPlan?.etiqueta}</Badge>
+                    <span className="text-sm text-slate-500">Solo lectura</span>
+                    <span className="ml-auto text-sm font-medium text-blue-600">Ver caracteristicas</span>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Los cambios de plan se gestionan desde administracion.
+                  </p>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Caracteristicas de tu plan</DialogTitle>
+                </DialogHeader>
+                <PlanActualDetalle perfil={perfil} estilo={resumenPlan?.estilo ?? ""} etiqueta={resumenPlan?.etiqueta ?? ""} />
+              </DialogContent>
+            </Dialog>
           </div>
           <div>
             <Label>Objetivo academico principal</Label>
@@ -718,6 +740,88 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function PlanActualDetalle({
+  perfil,
+  estilo,
+  etiqueta,
+}: {
+  perfil: PerfilUsuario;
+  estilo: string;
+  etiqueta: string;
+}) {
+  const plan = PLANES[perfil.plan];
+  const bloquesDisponibles = obtenerTiposBloqueDisponibles(perfil).map((tipo) => ETIQUETAS_BLOQUE[tipo]);
+  const funciones = [
+    "Dashboard academico",
+    "Cursos y horarios",
+    "Tareas y subtareas",
+    "Examenes",
+    "Notificaciones",
+    "Asistente IA",
+    "Planificador basico",
+    canUseTeamProjectsAdvanced(perfil) ? "Trabajos grupales ilimitados y gestion avanzada" : "1 trabajo grupal activo",
+    canUseLongProjects(perfil) ? "Tesis y proyectos largos" : null,
+    canUseMicroSessions(perfil) ? "Micro-sesiones para tesis y proyectos" : null,
+    canUseWorkStudyAutoplanning(perfil) ? "Replanificacion automatica trabajo + estudio" : null,
+  ].filter(Boolean);
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge className={estilo}>{etiqueta}</Badge>
+          <span className="text-sm text-slate-500">Plan actual</span>
+        </div>
+        <p className="mt-3 text-sm text-slate-700">{plan.descripcion}</p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MiniPlanDato titulo="Cursos" valor={plan.limiteCursos === "ilimitado" ? "Ilimitados" : `${plan.limiteCursos}`} />
+        <MiniPlanDato
+          titulo="Trabajos grupales"
+          valor={plan.limiteProyectosGrupales === "ilimitado" ? "Ilimitados" : `${plan.limiteProyectosGrupales}`}
+        />
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900">Funciones disponibles</h3>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {funciones.map((funcion) => (
+            <div key={funcion} className="flex items-start gap-2 rounded-xl bg-white px-3 py-2 text-sm text-slate-700">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{funcion}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900">Bloques del planificador incluidos</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {bloquesDisponibles.map((bloque) => (
+            <Badge key={bloque} className="bg-blue-50 text-blue-700">
+              {bloque}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      <p className="rounded-2xl bg-amber-50 p-3 text-sm text-amber-800">
+        Los cambios de plan se gestionan desde administracion.
+      </p>
+    </div>
+  );
+}
+
+function MiniPlanDato({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-sm text-slate-500">{titulo}</p>
+      <p className="mt-1 text-xl font-bold text-slate-900">{valor}</p>
     </div>
   );
 }

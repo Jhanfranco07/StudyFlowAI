@@ -90,6 +90,12 @@ export default function TeamProjects() {
   const [mensajeCopiado, setMensajeCopiado] = useState<Record<string, string>>({});
   const [nuevaTarea, setNuevaTarea] = useState<Record<string, string>>({});
   const [tareaEnEdicion, setTareaEnEdicion] = useState<ProyectoGrupal["tareas"][number] | null>(null);
+  const [cambioRolPendiente, setCambioRolPendiente] = useState<{
+    integranteId: string;
+    nombre: string;
+    rolActual: RolIntegranteProyecto;
+    rolNuevo: RolIntegranteProyecto;
+  } | null>(null);
   const [nuevoComentario, setNuevoComentario] = useState<Record<string, string>>({});
   const [nuevoChecklist, setNuevoChecklist] = useState<Record<string, string>>({});
   const puedeAvanzado = canUseTeamProjectsAdvanced(usuarioActual);
@@ -120,6 +126,37 @@ export default function TeamProjects() {
 
   return (
     <div className="space-y-8">
+      <AlertDialog open={Boolean(cambioRolPendiente)} onOpenChange={(abierto) => !abierto && setCambioRolPendiente(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar cambio de rol</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cambioRolPendiente ? (
+                <>
+                  Se cambiara el rol de "{cambioRolPendiente.nombre}" de {etiquetaRolPermiso(cambioRolPendiente.rolActual)} a{" "}
+                  {etiquetaRolPermiso(cambioRolPendiente.rolNuevo)}.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-blue-600 text-white hover:bg-blue-700"
+              onClick={() => {
+                if (!cambioRolPendiente) return;
+                actualizarIntegranteProyectoGrupal(cambioRolPendiente.integranteId, {
+                  rolPermiso: cambioRolPendiente.rolNuevo,
+                  rol: etiquetaRolPermiso(cambioRolPendiente.rolNuevo),
+                });
+                setCambioRolPendiente(null);
+              }}
+            >
+              Guardar rol
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={Boolean(tareaEnEdicion)} onOpenChange={(abierto) => !abierto && setTareaEnEdicion(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -498,12 +535,15 @@ export default function TeamProjects() {
                         </div>
                         <Select
                           value={integrante.rolPermiso}
-                          onValueChange={(rolPermiso: RolIntegranteProyecto) =>
-                            actualizarIntegranteProyectoGrupal(integrante.id, {
-                              rolPermiso,
-                              rol: etiquetaRolPermiso(rolPermiso),
-                            })
-                          }
+                          onValueChange={(rolPermiso: RolIntegranteProyecto) => {
+                            if (rolPermiso === integrante.rolPermiso) return;
+                            setCambioRolPendiente({
+                              integranteId: integrante.id,
+                              nombre: integrante.nombre,
+                              rolActual: integrante.rolPermiso,
+                              rolNuevo: rolPermiso,
+                            });
+                          }}
                         >
                           <SelectTrigger className="h-8 w-32 shrink-0">
                             <SelectValue />
