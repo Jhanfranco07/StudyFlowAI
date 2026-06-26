@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, BookOpen, Calendar, FileText, Pencil, Sparkles, Trash2, User } from "lucide-react";
+import { toast } from "sonner";
 import CourseScheduleEditor from "../components/CourseScheduleEditor";
 import {
   crearFilaHorarioCurso,
@@ -37,7 +38,8 @@ export default function CourseDetail() {
   const [errorHorario, setErrorHorario] = useState("");
   const [horasRepasoCurso, setHorasRepasoCurso] = useState("2");
   const [mensajeRepasoCurso, setMensajeRepasoCurso] = useState("");
-  const [repasoCursoProgramado, setRepasoCursoProgramado] = useState(false);
+  const [reservandoRepasoCurso, setReservandoRepasoCurso] = useState(false);
+  const reservaRepasoEnProceso = useRef(false);
   const [formulario, setFormulario] = useState(() =>
     curso
       ? {
@@ -153,7 +155,8 @@ export default function CourseDetail() {
                 if (!abierto) {
                   setHorasRepasoCurso("2");
                   setMensajeRepasoCurso("");
-                  setRepasoCursoProgramado(false);
+                  setReservandoRepasoCurso(false);
+                  reservaRepasoEnProceso.current = false;
                 }
               }}
             >
@@ -187,7 +190,6 @@ export default function CourseDetail() {
                       onChange={(event) => {
                         setHorasRepasoCurso(event.target.value);
                         setMensajeRepasoCurso("");
-                        setRepasoCursoProgramado(false);
                       }}
                     />
                     <p className="mt-2 text-sm text-slate-500">
@@ -196,26 +198,35 @@ export default function CourseDetail() {
                   </div>
 
                   {mensajeRepasoCurso ? (
-                    <div
-                      className={`rounded-2xl border p-3 text-sm ${
-                        repasoCursoProgramado
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-amber-200 bg-amber-50 text-amber-700"
-                      }`}
-                    >
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
                       {mensajeRepasoCurso}
                     </div>
                   ) : null}
 
                   <Button
                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                    disabled={reservandoRepasoCurso}
                     onClick={() => {
+                      if (reservaRepasoEnProceso.current) {
+                        return;
+                      }
+
+                      reservaRepasoEnProceso.current = true;
+                      setReservandoRepasoCurso(true);
                       const resultado = agendarRepasoCurso(curso.id, Number(horasRepasoCurso));
+                      if (resultado.ok) {
+                        setDialogoRepasoAbierto(false);
+                        toast.success("Repaso reservado", {
+                          description: resultado.mensaje,
+                        });
+                        return;
+                      }
                       setMensajeRepasoCurso(resultado.mensaje);
-                      setRepasoCursoProgramado(resultado.ok);
+                      setReservandoRepasoCurso(false);
+                      reservaRepasoEnProceso.current = false;
                     }}
                   >
-                    Reservar repaso para este curso
+                    {reservandoRepasoCurso ? "Reservando..." : "Reservar repaso para este curso"}
                   </Button>
                 </div>
               </DialogContent>

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { AlertCircle, BookOpen, Calendar, CheckCircle2, Circle, Clock, Pencil, Plus, Search, Sparkles, Trash2 } from "lucide-react";
 import {
@@ -82,6 +82,8 @@ export default function Tasks() {
   const [horasCalendarioDeseadas, setHorasCalendarioDeseadas] = useState("2");
   const [mensajeCalendario, setMensajeCalendario] = useState("");
   const [tareaProgramada, setTareaProgramada] = useState(false);
+  const [tareaCalendarioEnProcesoId, setTareaCalendarioEnProcesoId] = useState<string | null>(null);
+  const reservasTareaCalendarioEnProceso = useRef(new Set<string>());
   const planActual = PLANES[usuarioActual?.plan ?? "gratis"];
 
   useEffect(() => {
@@ -150,6 +152,20 @@ export default function Tasks() {
       overdue: "Atrasada",
     };
     return mapa[estado];
+  };
+
+  const reservarTareaEnCalendario = (tareaId: string) => {
+    if (reservasTareaCalendarioEnProceso.current.has(tareaId) || tareaProgramada) {
+      return;
+    }
+
+    reservasTareaCalendarioEnProceso.current.add(tareaId);
+    setTareaCalendarioEnProcesoId(tareaId);
+    const resultado = agendarTareaEnCalendario(tareaId, Number(horasCalendarioDeseadas));
+    setMensajeCalendario(resultado.mensaje);
+    setTareaProgramada(resultado.ok);
+    reservasTareaCalendarioEnProceso.current.delete(tareaId);
+    setTareaCalendarioEnProcesoId(null);
   };
 
   return (
@@ -447,10 +463,14 @@ export default function Tasks() {
                       open={tareaParaCalendario?.id === tarea.id}
                       onOpenChange={(abierto) => {
                         if (!abierto) {
+                          if (tareaParaCalendario) {
+                            reservasTareaCalendarioEnProceso.current.delete(tareaParaCalendario.id);
+                          }
                           setTareaParaCalendario(null);
                           setHorasCalendarioDeseadas("2");
                           setMensajeCalendario("");
                           setTareaProgramada(false);
+                          setTareaCalendarioEnProcesoId(null);
                         }
                       }}
                     >
@@ -518,16 +538,14 @@ export default function Tasks() {
 
                             <Button
                               className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
-                              onClick={() => {
-                                const resultado = agendarTareaEnCalendario(
-                                  tareaParaCalendario.id,
-                                  Number(horasCalendarioDeseadas),
-                                );
-                                setMensajeCalendario(resultado.mensaje);
-                                setTareaProgramada(resultado.ok);
-                              }}
+                              disabled={tareaProgramada || tareaCalendarioEnProcesoId === tareaParaCalendario.id}
+                              onClick={() => reservarTareaEnCalendario(tareaParaCalendario.id)}
                             >
-                              Reservar horas para esta tarea
+                              {tareaProgramada
+                                ? "Tarea reservada"
+                                : tareaCalendarioEnProcesoId === tareaParaCalendario.id
+                                  ? "Reservando..."
+                                  : "Reservar horas para esta tarea"}
                             </Button>
                           </div>
                         ) : null}
@@ -706,13 +724,17 @@ export default function Tasks() {
                           <Dialog
                             open={tareaParaCalendario?.id === tarea.id}
                             onOpenChange={(abierto) => {
-                              if (!abierto) {
-                                setTareaParaCalendario(null);
-                                setHorasCalendarioDeseadas("2");
-                                setMensajeCalendario("");
-                                setTareaProgramada(false);
-                              }
-                            }}
+                                if (!abierto) {
+                                  if (tareaParaCalendario) {
+                                    reservasTareaCalendarioEnProceso.current.delete(tareaParaCalendario.id);
+                                  }
+                                  setTareaParaCalendario(null);
+                                  setHorasCalendarioDeseadas("2");
+                                  setMensajeCalendario("");
+                                  setTareaProgramada(false);
+                                  setTareaCalendarioEnProcesoId(null);
+                                }
+                              }}
                           >
                             <DialogTrigger asChild>
                               <Button
@@ -778,16 +800,14 @@ export default function Tasks() {
 
                                   <Button
                                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
-                                    onClick={() => {
-                                      const resultado = agendarTareaEnCalendario(
-                                        tareaParaCalendario.id,
-                                        Number(horasCalendarioDeseadas),
-                                      );
-                                      setMensajeCalendario(resultado.mensaje);
-                                      setTareaProgramada(resultado.ok);
-                                    }}
+                                    disabled={tareaProgramada || tareaCalendarioEnProcesoId === tareaParaCalendario.id}
+                                    onClick={() => reservarTareaEnCalendario(tareaParaCalendario.id)}
                                   >
-                                    Reservar horas para esta tarea
+                                    {tareaProgramada
+                                      ? "Tarea reservada"
+                                      : tareaCalendarioEnProcesoId === tareaParaCalendario.id
+                                        ? "Reservando..."
+                                        : "Reservar horas para esta tarea"}
                                   </Button>
                                 </div>
                               ) : null}

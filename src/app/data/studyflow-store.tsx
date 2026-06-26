@@ -1020,6 +1020,20 @@ function programarBloquesAutomaticos(
   };
 }
 
+function obtenerHorasBloquesCalendarizados(
+  bloques: BloquePlanificador[],
+  filtro: Pick<BloquePlanificador, "titulo" | "cursoId" | "tipo">,
+) {
+  return bloques
+    .filter(
+      (bloque) =>
+        bloque.titulo.trim().toLowerCase() === filtro.titulo.trim().toLowerCase() &&
+        bloque.cursoId === filtro.cursoId &&
+        bloque.tipo === filtro.tipo,
+    )
+    .reduce((total, bloque) => total + bloque.duracion, 0);
+}
+
 function resolverPlanificacionInteligenteBase({
   estado,
   alcance,
@@ -2558,15 +2572,31 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           ? Math.max(1, Math.round(horasNumericas))
           : 1;
         const curso = estado.cursos.find((item) => item.id === tareaObjetivo.cursoId);
+        const tituloBloque = `Tarea: ${tareaObjetivo.titulo}`;
+        const horasYaCalendarizadas = obtenerHorasBloquesCalendarizados(estado.bloquesPlanificador, {
+          titulo: tituloBloque,
+          cursoId: tareaObjetivo.cursoId,
+          tipo: "study",
+        });
+
+        if (horasYaCalendarizadas >= horasSolicitadas) {
+          return {
+            ok: false,
+            mensaje: `Esa tarea ya tiene ${horasYaCalendarizadas}h reservadas en el calendario.`,
+            horasProgramadas: 0,
+          };
+        }
+
+        const horasPendientes = horasSolicitadas - horasYaCalendarizadas;
         const resultado = programarBloquesAutomaticos(
           {
-            titulo: `Tarea: ${tareaObjetivo.titulo}`,
+            titulo: tituloBloque,
             cursoId: tareaObjetivo.cursoId,
             color: curso?.color ?? "purple",
             fechaObjetivo: tareaObjetivo.fechaEntrega,
           },
           estado.bloquesPlanificador,
-          horasSolicitadas,
+          horasPendientes,
           estado.usuarioActual?.disponibilidadSemanal,
         );
 
@@ -2585,14 +2615,14 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
 
         const notificacionLocal: NotificacionItem = {
           id: crearId("notif"),
-          tipo: resultado.horasProgramadas < horasSolicitadas ? "warning" : "success",
+          tipo: resultado.horasProgramadas < horasPendientes ? "warning" : "success",
           titulo:
-            resultado.horasProgramadas < horasSolicitadas
+            resultado.horasProgramadas < horasPendientes
               ? "Tarea programada parcialmente"
               : "Tarea agregada al calendario",
           mensaje:
-            resultado.horasProgramadas < horasSolicitadas
-              ? `Solo pude reservar ${resultado.horasProgramadas}h de ${horasSolicitadas}h para "${tareaObjetivo.titulo}".`
+            resultado.horasProgramadas < horasPendientes
+              ? `Solo pude reservar ${resultado.horasProgramadas}h nuevas para "${tareaObjetivo.titulo}".`
               : `Reservé ${resultado.horasProgramadas}h para trabajar "${tareaObjetivo.titulo}" en espacios libres del calendario.`,
           creadaEn: new Date().toISOString(),
           noLeida: true,
@@ -2613,9 +2643,9 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         return {
           ok: true,
           mensaje:
-            resultado.horasProgramadas < horasSolicitadas
-              ? `Se programaron ${resultado.horasProgramadas}h. No encontré más huecos libres por ahora.`
-              : `Listo. Ya te reservé ${resultado.horasProgramadas}h para esa tarea en el calendario.`,
+            resultado.horasProgramadas < horasPendientes
+              ? `Se programaron ${resultado.horasProgramadas}h nuevas. No encontré más huecos libres por ahora.`
+              : `Listo. Ya te reservé ${horasYaCalendarizadas + resultado.horasProgramadas}h para esa tarea en el calendario.`,
           horasProgramadas: resultado.horasProgramadas,
         };
       },
@@ -2634,15 +2664,31 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           ? Math.max(1, Math.round(horasNumericas))
           : 1;
         const fechaObjetivo = obtenerFechaObjetivoCurso(cursoId, estado.tareas, estado.examenes);
+        const tituloBloque = `Repaso: ${cursoObjetivo.nombre}`;
+        const horasYaCalendarizadas = obtenerHorasBloquesCalendarizados(estado.bloquesPlanificador, {
+          titulo: tituloBloque,
+          cursoId,
+          tipo: "study",
+        });
+
+        if (horasYaCalendarizadas >= horasSolicitadas) {
+          return {
+            ok: false,
+            mensaje: `Ese curso ya tiene ${horasYaCalendarizadas}h de repaso reservadas en el calendario.`,
+            horasProgramadas: 0,
+          };
+        }
+
+        const horasPendientes = horasSolicitadas - horasYaCalendarizadas;
         const resultado = programarBloquesAutomaticos(
           {
-            titulo: `Repaso: ${cursoObjetivo.nombre}`,
+            titulo: tituloBloque,
             cursoId,
             color: cursoObjetivo.color,
             fechaObjetivo,
           },
           estado.bloquesPlanificador,
-          horasSolicitadas,
+          horasPendientes,
           estado.usuarioActual?.disponibilidadSemanal,
         );
 
@@ -2661,14 +2707,14 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
 
         const notificacionLocal: NotificacionItem = {
           id: crearId("notif"),
-          tipo: resultado.horasProgramadas < horasSolicitadas ? "warning" : "success",
+          tipo: resultado.horasProgramadas < horasPendientes ? "warning" : "success",
           titulo:
-            resultado.horasProgramadas < horasSolicitadas
+            resultado.horasProgramadas < horasPendientes
               ? "Repaso de curso programado parcialmente"
               : "Repaso de curso agregado al planificador",
           mensaje:
-            resultado.horasProgramadas < horasSolicitadas
-              ? `Solo pude reservar ${resultado.horasProgramadas}h de ${horasSolicitadas}h para ${cursoObjetivo.nombre}.`
+            resultado.horasProgramadas < horasPendientes
+              ? `Solo pude reservar ${resultado.horasProgramadas}h nuevas para ${cursoObjetivo.nombre}.`
               : `Reservé ${resultado.horasProgramadas}h de repaso general para ${cursoObjetivo.nombre}.`,
           creadaEn: new Date().toISOString(),
           noLeida: true,
@@ -2689,9 +2735,9 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         return {
           ok: true,
           mensaje:
-            resultado.horasProgramadas < horasSolicitadas
+            resultado.horasProgramadas < horasPendientes
               ? `Se programaron ${resultado.horasProgramadas}h de repaso para el curso.`
-              : `Listo. Ya te reservé ${resultado.horasProgramadas}h de repaso para ese curso.`,
+              : `Listo. Ya te reservé ${horasYaCalendarizadas + resultado.horasProgramadas}h de repaso para ese curso.`,
           horasProgramadas: resultado.horasProgramadas,
         };
       },
@@ -3022,12 +3068,25 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           .filter((item) => obtenerEstadoVisualTarea(item) !== "completed")
           .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega))[0];
         const curso = estado.cursos.find((item) => item.id === tarea?.cursoId);
+        const diaActual = (new Date().getDay() + 6) % 7;
+        const tituloBloque = titulo || `Micro-sesion: ${tarea?.titulo ?? "retomar avance"}`;
+        const microSesionExistente = estado.bloquesPlanificador.find(
+          (bloque) =>
+            bloque.tipo === "micro_session" &&
+            bloque.dia === diaActual &&
+            bloque.titulo.trim().toLowerCase() === tituloBloque.trim().toLowerCase(),
+        );
+
+        if (microSesionExistente) {
+          return { ok: false, mensaje: "Esa micro-sesion ya esta reservada para hoy." };
+        }
+
         const bloque: BloquePlanificador = {
           id: crearId("micro"),
-          dia: (new Date().getDay() + 6) % 7,
+          dia: diaActual,
           horaInicio: 19,
           duracion: duracionFinal / 60,
-          titulo: titulo || `Micro-sesion: ${tarea?.titulo ?? "retomar avance"}`,
+          titulo: tituloBloque,
           cursoId: tarea?.cursoId,
           color: curso?.color ?? "teal",
           tipo: "micro_session",
