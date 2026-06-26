@@ -32,6 +32,17 @@ import {
 } from "../components/ui/card";
 import SmartAlertActions from "../components/SmartAlertActions";
 import { ScrollArea } from "../components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 
 export default function Notifications() {
   const navigate = useNavigate();
@@ -77,10 +88,31 @@ export default function Notifications() {
             <CheckCircle className="mr-2 h-4 w-4" />
             Marcar todas como leídas
           </Button>
-          <Button variant="outline" onClick={limpiarNotificacionesLeidas}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Limpiar leídas
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Limpiar leídas
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Limpiar notificaciones leídas</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Se eliminarán del historial todas las notificaciones que ya marcaste como leídas. No se puede deshacer.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={limpiarNotificacionesLeidas}
+                >
+                  Limpiar leídas
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
