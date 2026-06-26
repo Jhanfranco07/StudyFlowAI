@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, Copy, Link2, Plus, ShieldCheck, UsersRound } from "lucide-react";
+import { Activity, Copy, Link2, Plus, ShieldCheck, Trash2, UsersRound } from "lucide-react";
 import { PLANES, canUseTeamProjectsAdvanced, isPremiumPlus } from "../data/plan-rules";
 import {
   formatearFechaCorta,
@@ -11,6 +11,17 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Progress } from "../components/ui/progress";
@@ -57,6 +68,7 @@ export default function TeamProjects() {
     cursos,
     proyectosGrupales,
     agregarProyectoGrupal,
+    eliminarProyectoGrupal,
     agregarIntegranteProyectoGrupal,
     agregarTareaProyectoGrupal,
     actualizarTareaProyectoGrupal,
@@ -254,12 +266,39 @@ export default function TeamProjects() {
                       {premiumPlusActivo ? <Badge className="bg-cyan-50 text-cyan-700">Modo avanzado</Badge> : null}
                     </div>
                   </div>
-                  <div className="min-w-52">
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span>Avance</span>
-                      <span>{avance}%</span>
+                  <div className="min-w-52 space-y-3">
+                    <div>
+                      <div className="mb-2 flex justify-between text-sm">
+                        <span>Avance</span>
+                        <span>{avance}%</span>
+                      </div>
+                      <Progress value={avance} />
                     </div>
-                    <Progress value={avance} />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full border-red-200 text-red-600 hover:bg-red-50">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar tablero
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Eliminar trabajo grupal</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se eliminara "{proyecto.nombre}" junto con sus integrantes y tareas. No se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            onClick={() => eliminarProyectoGrupal(proyecto.id)}
+                          >
+                            Eliminar tablero
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardHeader>

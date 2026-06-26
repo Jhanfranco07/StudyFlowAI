@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, LockKeyhole, Plus } from "lucide-react";
+import { CheckCircle2, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { TIPOS_PERFIL, canUseLongProjects, isPremiumPlus } from "../data/plan-rules";
 import { formatearFechaCorta, useStudyFlow, type FaseProyectoLargo, type TipoProyectoLargo } from "../data/studyflow-store";
@@ -7,6 +7,17 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Progress } from "../components/ui/progress";
@@ -37,6 +48,7 @@ export default function Projects() {
     cursos,
     proyectosLargos,
     agregarProyectoLargo,
+    eliminarProyectoLargo,
     agregarPasoProyectoLargo,
     alternarPasoProyectoLargo,
   } = useStudyFlow();
@@ -194,7 +206,34 @@ export default function Projects() {
                     <CardTitle>{proyecto.titulo}</CardTitle>
                     <p className="mt-1 text-sm text-gray-600">{curso?.nombre ?? "Proyecto transversal"} · {formatearFechaCorta(proyecto.fechaLimite)}</p>
                   </div>
-                  <Badge>{tipos.find((tipo) => tipo.value === proyecto.tipo)?.label}</Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge>{tipos.find((tipo) => tipo.value === proyecto.tipo)?.label}</Badge>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Eliminar proyecto largo</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se eliminara "{proyecto.titulo}" junto con sus fases y pasos. No se puede deshacer.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 text-white hover:bg-red-700"
+                            onClick={() => eliminarProyectoLargo(proyecto.id)}
+                          >
+                            Eliminar proyecto
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
