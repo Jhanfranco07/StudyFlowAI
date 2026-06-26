@@ -27,6 +27,8 @@ import {
 } from "./ai-service.js";
 import {
   mapearBloque,
+  mapearChecklistTareaGrupal,
+  mapearComentarioTareaGrupal,
   mapearCurso,
   mapearExamen,
   mapearMensajeChat,
@@ -1638,6 +1640,49 @@ async function obtenerProyectoLargoPorId(proyectoId) {
   return mapearProyectoLargo(row, pasos.rows.map(mapearPasoProyectoLargo));
 }
 
+async function obtenerDetallesTareasGrupales(tareaIds) {
+  if (!tareaIds.length) {
+    return { comentariosPorTarea: new Map(), checklistPorTarea: new Map() };
+  }
+
+  const [comentarios, checklist] = await Promise.all([
+    pool.query(
+      `
+      select id, tarea_id as "tareaId", autor, comentario, creado_en as "creadoEn"
+      from comentarios_tarea_grupal
+      where tarea_id = any($1::uuid[])
+      order by creado_en asc
+      `,
+      [tareaIds],
+    ),
+    pool.query(
+      `
+      select id, tarea_id as "tareaId", titulo, completado
+      from checklist_tarea_grupal
+      where tarea_id = any($1::uuid[])
+      order by creado_en asc
+      `,
+      [tareaIds],
+    ),
+  ]);
+
+  const comentariosPorTarea = new Map();
+  comentarios.rows.forEach((comentario) => {
+    const lista = comentariosPorTarea.get(comentario.tareaId) ?? [];
+    lista.push(mapearComentarioTareaGrupal(comentario));
+    comentariosPorTarea.set(comentario.tareaId, lista);
+  });
+
+  const checklistPorTarea = new Map();
+  checklist.rows.forEach((item) => {
+    const lista = checklistPorTarea.get(item.tareaId) ?? [];
+    lista.push(mapearChecklistTareaGrupal(item));
+    checklistPorTarea.set(item.tareaId, lista);
+  });
+
+  return { comentariosPorTarea, checklistPorTarea };
+}
+
 async function obtenerProyectosGrupalesEstudiante(estudianteId) {
   const proyectos = await pool.query(
     `
@@ -1657,7 +1702,7 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
   const ids = proyectos.rows.map((proyecto) => proyecto.id);
   const integrantes = await pool.query(
     `
-    select id, proyecto_id as "proyectoId", nombre, rol, rol_permiso as "rolPermiso"
+    select id, proyecto_id as "proyectoId", nombre, correo, rol, rol_permiso as "rolPermiso"
     from integrantes_proyecto
     where proyecto_id = any($1::uuid[])
     order by creado_en asc
@@ -1670,6 +1715,8 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
       id,
       proyecto_id as "proyectoId",
       titulo,
+      descripcion,
+      prioridad,
       responsable_id as "responsableId",
       fecha_limite as "fechaLimite",
       estado,
@@ -1689,15 +1736,18 @@ async function obtenerProyectosGrupalesEstudiante(estudianteId) {
   const tareasPorProyecto = new Map();
   tareas.rows.forEach((tarea) => {
     const lista = tareasPorProyecto.get(tarea.proyectoId) ?? [];
-    lista.push(mapearTareaGrupal(tarea));
+    lista.push(tarea);
     tareasPorProyecto.set(tarea.proyectoId, lista);
   });
+  const { comentariosPorTarea, checklistPorTarea } = await obtenerDetallesTareasGrupales(tareas.rows.map((tarea) => tarea.id));
 
   return proyectos.rows.map((proyecto) =>
     mapearProyectoGrupal(
       proyecto,
       integrantesPorProyecto.get(proyecto.id) ?? [],
-      tareasPorProyecto.get(proyecto.id) ?? [],
+      (tareasPorProyecto.get(proyecto.id) ?? []).map((tarea) =>
+        mapearTareaGrupal(tarea, comentariosPorTarea.get(tarea.id) ?? [], checklistPorTarea.get(tarea.id) ?? []),
+      ),
     ),
   );
 }
@@ -1715,10 +1765,10 @@ async function obtenerProyectoGrupalPorId(proyectoId) {
   const row = proyecto.rows[0];
   if (!row) return null;
   const [integrantes, tareas] = await Promise.all([
-    pool.query("select id, proyecto_id as \"proyectoId\", nombre, rol, rol_permiso as \"rolPermiso\" from integrantes_proyecto where proyecto_id = $1 order by creado_en asc", [proyectoId]),
+    pool.query("select id, proyecto_id as \"proyectoId\", nombre, correo, rol, rol_permiso as \"rolPermiso\" from integrantes_proyecto where proyecto_id = $1 order by creado_en asc", [proyectoId]),
     pool.query(
       `
-      select id, proyecto_id as "proyectoId", titulo, responsable_id as "responsableId", fecha_limite as "fechaLimite", estado, progreso
+      select id, proyecto_id as "proyectoId", titulo, descripcion, prioridad, responsable_id as "responsableId", fecha_limite as "fechaLimite", estado, progreso
       from tareas_grupales
       where proyecto_id = $1
       order by fecha_limite asc
@@ -1726,7 +1776,14 @@ async function obtenerProyectoGrupalPorId(proyectoId) {
       [proyectoId],
     ),
   ]);
-  return mapearProyectoGrupal(row, integrantes.rows.map(mapearIntegranteProyecto), tareas.rows.map(mapearTareaGrupal));
+  const { comentariosPorTarea, checklistPorTarea } = await obtenerDetallesTareasGrupales(tareas.rows.map((tarea) => tarea.id));
+  return mapearProyectoGrupal(
+    row,
+    integrantes.rows.map(mapearIntegranteProyecto),
+    tareas.rows.map((tarea) =>
+      mapearTareaGrupal(tarea, comentariosPorTarea.get(tarea.id) ?? [], checklistPorTarea.get(tarea.id) ?? []),
+    ),
+  );
 }
 
 async function asegurarColumnasCompatibilidad() {
@@ -1828,6 +1885,7 @@ async function asegurarColumnasCompatibilidad() {
     )
   `);
   await pool.query("alter table integrantes_proyecto add column if not exists rol_permiso text default 'editor'");
+  await pool.query("alter table integrantes_proyecto add column if not exists correo text default ''");
   await pool.query("update integrantes_proyecto set rol_permiso = 'editor' where rol_permiso is null or rol_permiso not in ('admin', 'editor', 'responsable', 'lector')");
   await pool.query("alter table integrantes_proyecto alter column rol_permiso set default 'editor'");
   await pool.query("alter table integrantes_proyecto alter column rol_permiso set not null");
@@ -1840,6 +1898,28 @@ async function asegurarColumnasCompatibilidad() {
       fecha_limite date not null,
       estado text not null default 'pendiente',
       progreso int not null default 0,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query("alter table tareas_grupales add column if not exists descripcion text default ''");
+  await pool.query("alter table tareas_grupales add column if not exists prioridad text default 'medium'");
+  await pool.query("update tareas_grupales set prioridad = 'medium' where prioridad is null or prioridad not in ('low', 'medium', 'high')");
+  await pool.query("alter table tareas_grupales alter column prioridad set default 'medium'");
+  await pool.query(`
+    create table if not exists comentarios_tarea_grupal (
+      id uuid primary key default gen_random_uuid(),
+      tarea_id uuid not null references tareas_grupales(id) on delete cascade,
+      autor text not null default 'Equipo',
+      comentario text not null,
+      creado_en timestamptz not null default now()
+    )
+  `);
+  await pool.query(`
+    create table if not exists checklist_tarea_grupal (
+      id uuid primary key default gen_random_uuid(),
+      tarea_id uuid not null references tareas_grupales(id) on delete cascade,
+      titulo text not null,
+      completado boolean not null default false,
       creado_en timestamptz not null default now()
     )
   `);
@@ -3534,16 +3614,45 @@ app.delete("/api/trabajos-grupales/:proyectoId", async (request, response) => {
 app.post("/api/trabajos-grupales/:proyectoId/integrantes", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const { nombre, rol = "Integrante", rolPermiso = "editor" } = request.body;
+  const { nombre, correo = "", rol = "Integrante", rolPermiso = "editor" } = request.body;
   const rolPermisoNormalizado = normalizarRolPermiso(rolPermiso);
   try {
     await pool.query(
-      "insert into integrantes_proyecto (proyecto_id, nombre, rol, rol_permiso) values ($1, $2, $3, $4)",
-      [request.params.proyectoId, nombre, rol, rolPermisoNormalizado],
+      "insert into integrantes_proyecto (proyecto_id, nombre, correo, rol, rol_permiso) values ($1, $2, $3, $4, $5)",
+      [request.params.proyectoId, nombre, correo, rol, rolPermisoNormalizado],
     );
     response.status(201).json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo agregar el integrante.", error: error.message });
+  }
+});
+
+app.patch("/api/trabajos-grupales/integrantes/:integranteId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const integrante = await pool.query("select proyecto_id from integrantes_proyecto where id = $1", [request.params.integranteId]);
+  if (!integrante.rows.length) {
+    return response.status(404).json({ mensaje: "Integrante no encontrado." });
+  }
+
+  const body = {
+    ...request.body,
+    rolPermiso: request.body.rolPermiso ? normalizarRolPermiso(request.body.rolPermiso) : undefined,
+  };
+  const campos = construirCamposActualizacion(
+    body,
+    { nombre: "nombre", correo: "correo", rol: "rol", rolPermiso: "rol_permiso" },
+  );
+  try {
+    if (campos.sets.length) {
+      await pool.query(
+        `update integrantes_proyecto set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+        [...campos.valores, request.params.integranteId],
+      );
+    }
+    response.json(await obtenerProyectoGrupalPorId(integrante.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar el integrante.", error: error.message });
   }
 });
 
@@ -3571,14 +3680,14 @@ app.delete("/api/trabajos-grupales/integrantes/:integranteId", async (request, r
 app.post("/api/trabajos-grupales/:proyectoId/tareas", async (request, response) => {
   if (!pool) return responderSinBase(response);
 
-  const { titulo, responsableId, fechaLimite } = request.body;
+  const { titulo, descripcion = "", responsableId, fechaLimite, prioridad = "medium" } = request.body;
   try {
     await pool.query(
       `
-      insert into tareas_grupales (proyecto_id, titulo, responsable_id, fecha_limite)
-      values ($1, $2, $3, $4)
+      insert into tareas_grupales (proyecto_id, titulo, descripcion, responsable_id, fecha_limite, prioridad)
+      values ($1, $2, $3, $4, $5, $6)
       `,
-      [request.params.proyectoId, titulo, responsableId || null, fechaLimite],
+      [request.params.proyectoId, titulo, descripcion, responsableId || null, fechaLimite, prioridad],
     );
     response.status(201).json(await obtenerProyectoGrupalPorId(request.params.proyectoId));
   } catch (error) {
@@ -3591,7 +3700,15 @@ app.patch("/api/trabajos-grupales/tareas/:tareaId", async (request, response) =>
 
   const campos = construirCamposActualizacion(
     request.body,
-    { titulo: "titulo", responsableId: "responsable_id", fechaLimite: "fecha_limite", estado: "estado", progreso: "progreso" },
+    {
+      titulo: "titulo",
+      descripcion: "descripcion",
+      prioridad: "prioridad",
+      responsableId: "responsable_id",
+      fechaLimite: "fecha_limite",
+      estado: "estado",
+      progreso: "progreso",
+    },
   );
   try {
     const tarea = await pool.query("select proyecto_id from tareas_grupales where id = $1", [request.params.tareaId]);
@@ -3608,6 +3725,73 @@ app.patch("/api/trabajos-grupales/tareas/:tareaId", async (request, response) =>
     response.json(await obtenerProyectoGrupalPorId(tarea.rows[0].proyecto_id));
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo actualizar la tarea grupal.", error: error.message });
+  }
+});
+
+app.post("/api/trabajos-grupales/tareas/:tareaId/comentarios", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { autor = "Equipo", comentario } = request.body;
+  try {
+    const tarea = await pool.query("select proyecto_id from tareas_grupales where id = $1", [request.params.tareaId]);
+    if (!tarea.rows.length) {
+      return response.status(404).json({ mensaje: "Tarea grupal no encontrada." });
+    }
+    await pool.query(
+      "insert into comentarios_tarea_grupal (tarea_id, autor, comentario) values ($1, $2, $3)",
+      [request.params.tareaId, autor, comentario],
+    );
+    response.status(201).json(await obtenerProyectoGrupalPorId(tarea.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo registrar el comentario.", error: error.message });
+  }
+});
+
+app.post("/api/trabajos-grupales/tareas/:tareaId/checklist", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const { titulo } = request.body;
+  try {
+    const tarea = await pool.query("select proyecto_id from tareas_grupales where id = $1", [request.params.tareaId]);
+    if (!tarea.rows.length) {
+      return response.status(404).json({ mensaje: "Tarea grupal no encontrada." });
+    }
+    await pool.query(
+      "insert into checklist_tarea_grupal (tarea_id, titulo) values ($1, $2)",
+      [request.params.tareaId, titulo],
+    );
+    response.status(201).json(await obtenerProyectoGrupalPorId(tarea.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo agregar el checklist.", error: error.message });
+  }
+});
+
+app.patch("/api/trabajos-grupales/checklist/:itemId", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  try {
+    const item = await pool.query(
+      `
+      select tg.proyecto_id
+      from checklist_tarea_grupal ct
+      join tareas_grupales tg on tg.id = ct.tarea_id
+      where ct.id = $1
+      `,
+      [request.params.itemId],
+    );
+    if (!item.rows.length) {
+      return response.status(404).json({ mensaje: "Item de checklist no encontrado." });
+    }
+    const campos = construirCamposActualizacion(request.body, { titulo: "titulo", completado: "completado" });
+    if (campos.sets.length) {
+      await pool.query(
+        `update checklist_tarea_grupal set ${campos.sets.join(", ")} where id = $${campos.valores.length + 1}`,
+        [...campos.valores, request.params.itemId],
+      );
+    }
+    response.json(await obtenerProyectoGrupalPorId(item.rows[0].proyecto_id));
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo actualizar el checklist.", error: error.message });
   }
 });
 

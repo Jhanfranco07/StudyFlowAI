@@ -249,6 +249,7 @@ export type ProyectoGrupalApi = {
     id: string;
     proyectoId: string;
     nombre: string;
+    correo?: string;
     rol: string;
     rolPermiso: "admin" | "editor" | "responsable" | "lector";
   }>;
@@ -256,10 +257,14 @@ export type ProyectoGrupalApi = {
     id: string;
     proyectoId: string;
     titulo: string;
-    responsableId?: string;
+    descripcion: string;
+    prioridad: "low" | "medium" | "high";
+    responsableId?: string | null;
     fechaLimite: string;
     estado: "pendiente" | "en_proceso" | "en_revision" | "finalizado";
     progreso: number;
+    comentarios: Array<{ id: string; tareaId: string; autor: string; comentario: string; creadoEn: string }>;
+    checklist: Array<{ id: string; tareaId: string; titulo: string; completado: boolean }>;
   }>;
 };
 
@@ -644,10 +649,19 @@ export const api = {
   },
   agregarIntegranteTrabajoGrupal(
     proyectoId: string,
-    payload: { nombre: string; rol: string; rolPermiso?: "admin" | "editor" | "responsable" | "lector" },
+    payload: { nombre: string; correo?: string; rol: string; rolPermiso?: "admin" | "editor" | "responsable" | "lector" },
   ) {
     return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}/integrantes`, {
       method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarIntegranteTrabajoGrupal(
+    integranteId: string,
+    payload: { nombre?: string; correo?: string; rol?: string; rolPermiso?: "admin" | "editor" | "responsable" | "lector" },
+  ) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/integrantes/${integranteId}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     });
   },
@@ -658,7 +672,7 @@ export const api = {
   },
   crearTareaTrabajoGrupal(
     proyectoId: string,
-    payload: { titulo: string; responsableId?: string; fechaLimite: string },
+    payload: { titulo: string; descripcion?: string; responsableId?: string | null; fechaLimite: string; prioridad?: "low" | "medium" | "high" },
   ) {
     return request<ProyectoGrupalApi>(`/api/trabajos-grupales/${proyectoId}/tareas`, {
       method: "POST",
@@ -669,10 +683,12 @@ export const api = {
     tareaId: string,
     payload: {
       titulo?: string;
+      descripcion?: string;
       fechaLimite?: string;
+      prioridad?: "low" | "medium" | "high";
       estado?: ProyectoGrupalApi["tareas"][number]["estado"];
       progreso?: number;
-      responsableId?: string;
+      responsableId?: string | null;
     },
   ) {
     return request<ProyectoGrupalApi>(`/api/trabajos-grupales/tareas/${tareaId}`, {
@@ -688,6 +704,24 @@ export const api = {
   agendarMicroSesion(estudianteId: string, payload: { duracion: number; titulo?: string; tareaId?: string }) {
     return request<{ bloque: BloquePlanificadorApi; mensaje: string }>(`/api/micro-sesiones/${estudianteId}/agendar`, {
       method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  comentarTareaTrabajoGrupal(tareaId: string, payload: { autor?: string; comentario: string }) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/tareas/${tareaId}/comentarios`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  agregarChecklistTrabajoGrupal(tareaId: string, payload: { titulo: string }) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/tareas/${tareaId}/checklist`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  actualizarChecklistTrabajoGrupal(itemId: string, payload: { titulo?: string; completado?: boolean }) {
+    return request<ProyectoGrupalApi>(`/api/trabajos-grupales/checklist/${itemId}`, {
+      method: "PATCH",
       body: JSON.stringify(payload),
     });
   },

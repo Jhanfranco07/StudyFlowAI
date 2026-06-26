@@ -180,12 +180,27 @@ type ValorContextoStudyFlow = EstadoStudyFlow & {
   agregarIntegranteProyectoGrupal: (
     proyectoId: string,
     nombre: string,
+    correo?: string,
     rol?: string,
     rolPermiso?: ProyectoGrupal["integrantes"][number]["rolPermiso"],
   ) => void;
+  actualizarIntegranteProyectoGrupal: (
+    integranteId: string,
+    cambios: Partial<ProyectoGrupal["integrantes"][number]>,
+  ) => void;
   eliminarIntegranteProyectoGrupal: (integranteId: string) => void;
-  agregarTareaProyectoGrupal: (proyectoId: string, titulo: string, fechaLimite: string, responsableId?: string) => void;
+  agregarTareaProyectoGrupal: (
+    proyectoId: string,
+    titulo: string,
+    fechaLimite: string,
+    responsableId?: string | null,
+    descripcion?: string,
+    prioridad?: Prioridad,
+  ) => void;
   actualizarTareaProyectoGrupal: (tareaId: string, cambios: Partial<ProyectoGrupal["tareas"][number]>) => void;
+  comentarTareaProyectoGrupal: (tareaId: string, comentario: string, autor?: string) => void;
+  agregarChecklistTareaGrupal: (tareaId: string, titulo: string) => void;
+  alternarChecklistTareaGrupal: (itemId: string, completado: boolean) => void;
   sugerirMicroSesion: () => { duracion: number; mensaje: string; tareaId?: string };
   agendarMicroSesion: (duracion?: number, titulo?: string) => { ok: boolean; mensaje: string };
   marcarNotificacionLeida: (notificacionId: string) => void;
@@ -430,10 +445,17 @@ function normalizarProyectoGrupalApi(proyecto: ProyectoGrupalApi): ProyectoGrupa
   return {
     ...proyecto,
     fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
-    integrantes: proyecto.integrantes ?? [],
+    integrantes: (proyecto.integrantes ?? []).map((integrante) => ({
+      ...integrante,
+      correo: integrante.correo ?? "",
+    })),
     tareas: (proyecto.tareas ?? []).map((tarea) => ({
       ...tarea,
+      descripcion: tarea.descripcion ?? "",
+      prioridad: tarea.prioridad ?? "medium",
       fechaLimite: normalizarFechaFormulario(tarea.fechaLimite),
+      comentarios: tarea.comentarios ?? [],
+      checklist: tarea.checklist ?? [],
     })),
   };
 }
@@ -1756,14 +1778,14 @@ function crearEstadoInicial(): EstadoStudyFlow {
       fechaLimite: format(addDays(hoy, 9), "yyyy-MM-dd"),
       codigoInvitacion: "AGIL09",
       integrantes: [
-        { id: "member-1", proyectoId: "team-1", nombre: "Jhan", rol: "Coordinador", rolPermiso: "admin" },
-        { id: "member-2", proyectoId: "team-1", nombre: "Lucia", rol: "Diapositivas", rolPermiso: "editor" },
-        { id: "member-3", proyectoId: "team-1", nombre: "Diego", rol: "Investigacion", rolPermiso: "responsable" },
+        { id: "member-1", proyectoId: "team-1", nombre: "Jhan", correo: "", rol: "Coordinador", rolPermiso: "admin" },
+        { id: "member-2", proyectoId: "team-1", nombre: "Lucia", correo: "", rol: "Diapositivas", rolPermiso: "editor" },
+        { id: "member-3", proyectoId: "team-1", nombre: "Diego", correo: "", rol: "Investigacion", rolPermiso: "responsable" },
       ],
       tareas: [
-        { id: "team-task-1", proyectoId: "team-1", titulo: "Investigar Scrum y Kanban", responsableId: "member-3", fechaLimite: format(addDays(hoy, 3), "yyyy-MM-dd"), estado: "en_proceso", progreso: 55 },
-        { id: "team-task-2", proyectoId: "team-1", titulo: "Armar diapositivas", responsableId: "member-2", fechaLimite: format(addDays(hoy, 5), "yyyy-MM-dd"), estado: "pendiente", progreso: 10 },
-        { id: "team-task-3", proyectoId: "team-1", titulo: "Practicar exposicion", responsableId: "member-1", fechaLimite: format(addDays(hoy, 8), "yyyy-MM-dd"), estado: "pendiente", progreso: 0 },
+        { id: "team-task-1", proyectoId: "team-1", titulo: "Investigar Scrum y Kanban", descripcion: "", prioridad: "medium", responsableId: "member-3", fechaLimite: format(addDays(hoy, 3), "yyyy-MM-dd"), estado: "en_proceso", progreso: 55, comentarios: [], checklist: [] },
+        { id: "team-task-2", proyectoId: "team-1", titulo: "Armar diapositivas", descripcion: "", prioridad: "medium", responsableId: "member-2", fechaLimite: format(addDays(hoy, 5), "yyyy-MM-dd"), estado: "pendiente", progreso: 10, comentarios: [], checklist: [] },
+        { id: "team-task-3", proyectoId: "team-1", titulo: "Practicar exposicion", descripcion: "", prioridad: "low", responsableId: "member-1", fechaLimite: format(addDays(hoy, 8), "yyyy-MM-dd"), estado: "pendiente", progreso: 0, comentarios: [], checklist: [] },
       ],
     },
   ];
@@ -1943,9 +1965,17 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         proyectosGrupales: (parseado.proyectosGrupales ?? []).map((proyecto) => ({
           ...proyecto,
           fechaLimite: normalizarFechaFormulario(proyecto.fechaLimite),
+          integrantes: (proyecto.integrantes ?? []).map((integrante) => ({
+            ...integrante,
+            correo: integrante.correo ?? "",
+          })),
           tareas: (proyecto.tareas ?? []).map((tarea) => ({
             ...tarea,
+            descripcion: tarea.descripcion ?? "",
+            prioridad: tarea.prioridad ?? "medium",
             fechaLimite: normalizarFechaFormulario(tarea.fechaLimite),
+            comentarios: tarea.comentarios ?? [],
+            checklist: tarea.checklist ?? [],
           })),
         })),
         bloquesPlanificador: sincronizarBloquesClaseConCursos(
@@ -3112,15 +3142,41 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
         }));
         api.eliminarTrabajoGrupal(proyectoId).catch(() => {});
       },
-      agregarIntegranteProyectoGrupal: (proyectoId, nombre, rol = "Integrante", rolPermiso = "editor") => {
-        const integrante = { id: crearId("member"), proyectoId, nombre, rol, rolPermiso };
+      agregarIntegranteProyectoGrupal: (proyectoId, nombre, correo = "", rol = "Integrante", rolPermiso = "editor") => {
+        const integrante = { id: crearId("member"), proyectoId, nombre, correo, rol, rolPermiso };
         setEstado((actual) => ({
           ...actual,
           proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
             proyecto.id === proyectoId ? { ...proyecto, integrantes: [...proyecto.integrantes, integrante] } : proyecto,
           ),
         }));
-        api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, rol, rolPermiso }).catch(() => {});
+        api.agregarIntegranteTrabajoGrupal(proyectoId, { nombre, correo, rol, rolPermiso }).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      actualizarIntegranteProyectoGrupal: (integranteId, cambios) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            integrantes: proyecto.integrantes.map((integrante) =>
+              integrante.id === integranteId ? { ...integrante, ...cambios } : integrante,
+            ),
+          })),
+        }));
+        api.actualizarIntegranteTrabajoGrupal(integranteId, cambios).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
       },
       eliminarIntegranteProyectoGrupal: (integranteId) => {
         setEstado((actual) => ({
@@ -3143,15 +3199,19 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
           }));
         }).catch(() => {});
       },
-      agregarTareaProyectoGrupal: (proyectoId, titulo, fechaLimite, responsableId) => {
+      agregarTareaProyectoGrupal: (proyectoId, titulo, fechaLimite, responsableId, descripcion = "", prioridad = "medium") => {
         const tarea = {
           id: crearId("team-task"),
           proyectoId,
           titulo,
-          responsableId,
+          descripcion,
+          prioridad,
+          responsableId: responsableId || undefined,
           fechaLimite: normalizarFechaFormulario(fechaLimite),
           estado: "pendiente" as const,
           progreso: 0,
+          comentarios: [],
+          checklist: [],
         };
         setEstado((actual) => ({
           ...actual,
@@ -3159,12 +3219,26 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             proyecto.id === proyectoId ? { ...proyecto, tareas: [...proyecto.tareas, tarea] } : proyecto,
           ),
         }));
-        api.crearTareaTrabajoGrupal(proyectoId, { titulo, fechaLimite: normalizarFechaFormulario(fechaLimite), responsableId }).catch(() => {});
+        api.crearTareaTrabajoGrupal(
+          proyectoId,
+          { titulo, descripcion, prioridad, fechaLimite: normalizarFechaFormulario(fechaLimite), responsableId: responsableId || null },
+        ).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
       },
       actualizarTareaProyectoGrupal: (tareaId, cambios) => {
         const cambiosNormalizados = {
           ...cambios,
           fechaLimite: cambios.fechaLimite ? normalizarFechaFormulario(cambios.fechaLimite) : cambios.fechaLimite,
+        };
+        const payloadApi = {
+          ...cambiosNormalizados,
+          responsableId: "responsableId" in cambiosNormalizados ? (cambiosNormalizados.responsableId || null) : undefined,
         };
         setEstado((actual) => ({
           ...actual,
@@ -3173,7 +3247,73 @@ export function StudyFlowProvider({ children }: { children: ReactNode }) {
             tareas: proyecto.tareas.map((tarea) => (tarea.id === tareaId ? { ...tarea, ...cambiosNormalizados } : tarea)),
           })),
         }));
-        api.actualizarTareaTrabajoGrupal(tareaId, cambiosNormalizados).catch(() => {});
+        api.actualizarTareaTrabajoGrupal(tareaId, payloadApi).catch(() => {});
+      },
+      comentarTareaProyectoGrupal: (tareaId, comentario, autor = "Equipo") => {
+        const comentarioLocal = {
+          id: crearId("team-comment"),
+          tareaId,
+          autor,
+          comentario,
+          creadoEn: new Date().toISOString(),
+        };
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            tareas: proyecto.tareas.map((tarea) =>
+              tarea.id === tareaId ? { ...tarea, comentarios: [...tarea.comentarios, comentarioLocal] } : tarea,
+            ),
+          })),
+        }));
+        api.comentarTareaTrabajoGrupal(tareaId, { autor, comentario }).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      agregarChecklistTareaGrupal: (tareaId, titulo) => {
+        const itemLocal = { id: crearId("team-check"), tareaId, titulo, completado: false };
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            tareas: proyecto.tareas.map((tarea) =>
+              tarea.id === tareaId ? { ...tarea, checklist: [...tarea.checklist, itemLocal] } : tarea,
+            ),
+          })),
+        }));
+        api.agregarChecklistTrabajoGrupal(tareaId, { titulo }).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
+      },
+      alternarChecklistTareaGrupal: (itemId, completado) => {
+        setEstado((actual) => ({
+          ...actual,
+          proyectosGrupales: actual.proyectosGrupales.map((proyecto) => ({
+            ...proyecto,
+            tareas: proyecto.tareas.map((tarea) => ({
+              ...tarea,
+              checklist: tarea.checklist.map((item) => (item.id === itemId ? { ...item, completado } : item)),
+            })),
+          })),
+        }));
+        api.actualizarChecklistTrabajoGrupal(itemId, { completado }).then((actualizado) => {
+          setEstado((actual) => ({
+            ...actual,
+            proyectosGrupales: actual.proyectosGrupales.map((proyecto) =>
+              proyecto.id === actualizado.id ? normalizarProyectoGrupalApi(actualizado) : proyecto,
+            ),
+          }));
+        }).catch(() => {});
       },
       sugerirMicroSesion: () => {
         const duracion = estado.usuarioActual?.preferenciaMicroSesion ?? 20;

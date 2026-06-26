@@ -152,20 +152,44 @@ export function mapearIntegranteProyecto(row) {
     id: row.id,
     proyectoId: row.proyectoId,
     nombre: row.nombre,
+    correo: row.correo ?? "",
     rol: row.rol ?? "Integrante",
     rolPermiso: row.rolPermiso ?? "editor",
   };
 }
 
-export function mapearTareaGrupal(row) {
+export function mapearComentarioTareaGrupal(row) {
+  return {
+    id: row.id,
+    tareaId: row.tareaId,
+    autor: row.autor ?? "Equipo",
+    comentario: row.comentario,
+    creadoEn: row.creadoEn,
+  };
+}
+
+export function mapearChecklistTareaGrupal(row) {
+  return {
+    id: row.id,
+    tareaId: row.tareaId,
+    titulo: row.titulo,
+    completado: row.completado,
+  };
+}
+
+export function mapearTareaGrupal(row, comentarios = [], checklist = []) {
   return {
     id: row.id,
     proyectoId: row.proyectoId,
     titulo: row.titulo,
+    descripcion: row.descripcion ?? "",
+    prioridad: row.prioridad ?? "medium",
     responsableId: row.responsableId ?? undefined,
     fechaLimite: row.fechaLimite,
     estado: row.estado,
     progreso: row.progreso,
+    comentarios,
+    checklist,
   };
 }
 

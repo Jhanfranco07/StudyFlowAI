@@ -205,12 +205,14 @@ create table if not exists integrantes_proyecto (
   id uuid primary key default gen_random_uuid(),
   proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
   nombre text not null,
+  correo text default '',
   rol text default 'Integrante',
   rol_permiso text not null default 'editor' check (rol_permiso in ('admin', 'editor', 'responsable', 'lector')),
   creado_en timestamptz not null default now()
 );
 
 alter table integrantes_proyecto add column if not exists rol_permiso text default 'editor';
+alter table integrantes_proyecto add column if not exists correo text default '';
 update integrantes_proyecto
 set rol_permiso = 'editor'
 where rol_permiso is null or rol_permiso not in ('admin', 'editor', 'responsable', 'lector');
@@ -221,12 +223,21 @@ create table if not exists tareas_grupales (
   id uuid primary key default gen_random_uuid(),
   proyecto_id uuid not null references proyectos_grupales(id) on delete cascade,
   titulo text not null,
+  descripcion text default '',
   responsable_id uuid references integrantes_proyecto(id) on delete set null,
   fecha_limite date not null,
+  prioridad text not null default 'medium' check (prioridad in ('low', 'medium', 'high')),
   estado text not null default 'pendiente' check (estado in ('pendiente', 'en_proceso', 'en_revision', 'finalizado')),
   progreso int not null default 0 check (progreso between 0 and 100),
   creado_en timestamptz not null default now()
 );
+
+alter table tareas_grupales add column if not exists descripcion text default '';
+alter table tareas_grupales add column if not exists prioridad text default 'medium';
+update tareas_grupales
+set prioridad = 'medium'
+where prioridad is null or prioridad not in ('low', 'medium', 'high');
+alter table tareas_grupales alter column prioridad set default 'medium';
 
 create table if not exists comentarios_tarea_grupal (
   id uuid primary key default gen_random_uuid(),

@@ -157,18 +157,38 @@ export type IntegranteProyecto = {
   id: string;
   proyectoId: string;
   nombre: string;
+  correo?: string;
   rol: string;
   rolPermiso: RolIntegranteProyecto;
+};
+
+export type ComentarioTareaGrupal = {
+  id: string;
+  tareaId: string;
+  autor: string;
+  comentario: string;
+  creadoEn: string;
+};
+
+export type ChecklistTareaGrupal = {
+  id: string;
+  tareaId: string;
+  titulo: string;
+  completado: boolean;
 };
 
 export type TareaGrupal = {
   id: string;
   proyectoId: string;
   titulo: string;
-  responsableId?: string;
+  descripcion: string;
+  prioridad: Prioridad;
+  responsableId?: string | null;
   fechaLimite: string;
   estado: EstadoTareaGrupal;
   progreso: number;
+  comentarios: ComentarioTareaGrupal[];
+  checklist: ChecklistTareaGrupal[];
 };
 
 export type ProyectoGrupal = {
