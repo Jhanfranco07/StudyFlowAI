@@ -440,11 +440,13 @@ export default function AdminPanel() {
                   Actividad general
                 </CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-3 text-sm sm:grid-cols-2">
+              <CardContent className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <MiniDato etiqueta="Proyectos largos" valor={valorMetrica(metricas?.totalProyectosLargos)} detalle="Entregables individuales" />
                 <MiniDato etiqueta="Trabajos grupales" valor={valorMetrica(metricas?.totalTrabajosGrupales)} detalle="Colaborativos activos" />
                 <MiniDato etiqueta="Notificaciones" valor={valorMetrica(metricas?.totalNotificaciones)} detalle="Historial generado" />
+                <MiniDato etiqueta="Promedio cursos" valor={String(metricas?.promedioCursosPorUsuario ?? 0)} detalle="Por usuario" />
                 <MiniDato etiqueta="Promedio tareas" valor={String(metricas?.promedioTareasPorUsuario ?? 0)} detalle="Por usuario" />
+                <MiniDato etiqueta="Promedio examenes" valor={String(metricas?.promedioExamenesPorUsuario ?? 0)} detalle="Por usuario" />
               </CardContent>
             </Card>
           </div>
