@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, LockKeyhole, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, LockKeyhole, Pencil, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import { TIPOS_PERFIL, canUseLongProjects, isPremiumPlus } from "../data/plan-rules";
-import { formatearFechaCorta, useStudyFlow, type FaseProyectoLargo, type TipoProyectoLargo } from "../data/studyflow-store";
+import { formatearFechaCorta, useStudyFlow, type FaseProyectoLargo, type ProyectoLargo, type TipoProyectoLargo } from "../data/studyflow-store";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -48,11 +48,13 @@ export default function Projects() {
     cursos,
     proyectosLargos,
     agregarProyectoLargo,
+    actualizarProyectoLargo,
     eliminarProyectoLargo,
     agregarPasoProyectoLargo,
     alternarPasoProyectoLargo,
   } = useStudyFlow();
   const [dialogoAbierto, setDialogoAbierto] = useState(false);
+  const [proyectoEnEdicion, setProyectoEnEdicion] = useState<ProyectoLargo | null>(null);
   const [form, setForm] = useState({
     titulo: "",
     descripcion: "",
@@ -121,48 +123,18 @@ export default function Projects() {
             <DialogHeader>
               <DialogTitle>Crear proyecto largo</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Titulo</Label>
-                <Input className="mt-2" value={form.titulo} onChange={(event) => setForm({ ...form, titulo: event.target.value })} />
-              </div>
-              <div>
-                <Label>Tipo</Label>
-                <Select value={form.tipo} onValueChange={(tipo: TipoProyectoLargo) => setForm({ ...form, tipo })}>
-                  <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
-                  <SelectContent>{tipos.map((tipo) => <SelectItem key={tipo.value} value={tipo.value}>{tipo.label}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Curso asociado</Label>
-                <Select value={form.cursoId} onValueChange={(cursoId) => setForm({ ...form, cursoId })}>
-                  <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin curso</SelectItem>
-                    {cursos.map((curso) => <SelectItem key={curso.id} value={curso.id}>{curso.nombre}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Fecha limite</Label>
-                <Input type="date" className="mt-2" value={form.fechaLimite} onChange={(event) => setForm({ ...form, fechaLimite: event.target.value })} />
-              </div>
-              <div>
-                <Label>Descripcion</Label>
-                <Textarea className="mt-2" value={form.descripcion} onChange={(event) => setForm({ ...form, descripcion: event.target.value })} />
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => {
-                  agregarProyectoLargo({ ...form, cursoId: form.cursoId === "none" ? undefined : form.cursoId });
-                  setForm({ titulo: "", descripcion: "", tipo: "tesis", cursoId: "none", fechaLimite: "" });
-                  setDialogoAbierto(false);
-                }}
-                disabled={!form.titulo || !form.fechaLimite || !puedeUsar}
-              >
-                Guardar proyecto
-              </Button>
-            </div>
+            <FormularioProyectoLargo
+              cursos={cursos.map((curso) => ({ id: curso.id, nombre: curso.nombre }))}
+              valor={form}
+              onChange={setForm}
+              textoBoton="Guardar proyecto"
+              disabled={!form.titulo || !form.fechaLimite || !puedeUsar}
+              onGuardar={() => {
+                agregarProyectoLargo({ ...form, cursoId: form.cursoId === "none" ? undefined : form.cursoId });
+                setForm({ titulo: "", descripcion: "", tipo: "tesis", cursoId: "none", fechaLimite: "" });
+                setDialogoAbierto(false);
+              }}
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -208,6 +180,60 @@ export default function Projects() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge>{tipos.find((tipo) => tipo.value === proyecto.tipo)?.label}</Badge>
+                    <Dialog
+                      open={proyectoEnEdicion?.id === proyecto.id}
+                      onOpenChange={(abierto) => !abierto && setProyectoEnEdicion(null)}
+                    >
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={() => setProyectoEnEdicion(proyecto)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Editar proyecto largo</DialogTitle>
+                        </DialogHeader>
+                        {proyectoEnEdicion ? (
+                          <FormularioProyectoLargo
+                            cursos={cursos.map((curso) => ({ id: curso.id, nombre: curso.nombre }))}
+                            valor={{
+                              titulo: proyectoEnEdicion.titulo,
+                              descripcion: proyectoEnEdicion.descripcion,
+                              tipo: proyectoEnEdicion.tipo,
+                              cursoId: proyectoEnEdicion.cursoId ?? "none",
+                              fechaLimite: proyectoEnEdicion.fechaLimite,
+                            }}
+                            onChange={(valor) =>
+                              setProyectoEnEdicion((actual) =>
+                                actual
+                                  ? {
+                                      ...actual,
+                                      titulo: valor.titulo,
+                                      descripcion: valor.descripcion,
+                                      tipo: valor.tipo,
+                                      cursoId: valor.cursoId === "none" ? undefined : valor.cursoId,
+                                      fechaLimite: valor.fechaLimite,
+                                    }
+                                  : actual,
+                              )
+                            }
+                            textoBoton="Guardar cambios"
+                            onGuardar={() => {
+                              if (!proyectoEnEdicion) return;
+                              actualizarProyectoLargo(proyectoEnEdicion.id, {
+                                titulo: proyectoEnEdicion.titulo,
+                                descripcion: proyectoEnEdicion.descripcion,
+                                tipo: proyectoEnEdicion.tipo,
+                                cursoId: proyectoEnEdicion.cursoId,
+                                fechaLimite: proyectoEnEdicion.fechaLimite,
+                              });
+                              setProyectoEnEdicion(null);
+                            }}
+                          />
+                        ) : null}
+                      </DialogContent>
+                    </Dialog>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50">
@@ -288,6 +314,71 @@ export default function Projects() {
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function FormularioProyectoLargo({
+  cursos,
+  valor,
+  onChange,
+  onGuardar,
+  textoBoton,
+  disabled = false,
+}: {
+  cursos: Array<{ id: string; nombre: string }>;
+  valor: {
+    titulo: string;
+    descripcion: string;
+    tipo: TipoProyectoLargo;
+    cursoId: string;
+    fechaLimite: string;
+  };
+  onChange: (valor: {
+    titulo: string;
+    descripcion: string;
+    tipo: TipoProyectoLargo;
+    cursoId: string;
+    fechaLimite: string;
+  }) => void;
+  onGuardar: () => void;
+  textoBoton: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Titulo</Label>
+        <Input className="mt-2" value={valor.titulo} onChange={(event) => onChange({ ...valor, titulo: event.target.value })} />
+      </div>
+      <div>
+        <Label>Tipo</Label>
+        <Select value={valor.tipo} onValueChange={(tipo: TipoProyectoLargo) => onChange({ ...valor, tipo })}>
+          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+          <SelectContent>{tipos.map((tipo) => <SelectItem key={tipo.value} value={tipo.value}>{tipo.label}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Curso asociado</Label>
+        <Select value={valor.cursoId} onValueChange={(cursoId) => onChange({ ...valor, cursoId })}>
+          <SelectTrigger className="mt-2"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sin curso</SelectItem>
+            {cursos.map((curso) => <SelectItem key={curso.id} value={curso.id}>{curso.nombre}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Fecha limite</Label>
+        <Input type="date" className="mt-2" value={valor.fechaLimite} onChange={(event) => onChange({ ...valor, fechaLimite: event.target.value })} />
+      </div>
+      <div>
+        <Label>Descripcion</Label>
+        <Textarea className="mt-2" value={valor.descripcion} onChange={(event) => onChange({ ...valor, descripcion: event.target.value })} />
+      </div>
+      <Button className="w-full" onClick={onGuardar} disabled={disabled}>
+        {textoBoton}
+      </Button>
     </div>
   );
 }
