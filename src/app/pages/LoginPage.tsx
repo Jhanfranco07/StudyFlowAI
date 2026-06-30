@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, GraduationCap, Lock, Mail } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useStudyFlow } from "../data/studyflow-store";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import LanguageToggle from "../components/LanguageToggle";
 
 type GoogleCredentialResponse = {
   credential?: string;
@@ -39,6 +41,7 @@ type GoogleWindow = Window & {
 };
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { iniciarSesion, iniciarSesionConGoogle } = useStudyFlow();
@@ -165,9 +168,10 @@ export default function LoginPage() {
         <Button asChild variant="ghost" className="absolute left-4 top-4 sm:left-6 sm:top-6">
           <Link to="/">
             <ArrowLeft className="h-4 w-4" />
-            Volver al inicio
+            {t("common.backHome")}
           </Link>
         </Button>
+        <div className="absolute right-4 top-4 sm:right-6 sm:top-6"><LanguageToggle /></div>
         <div className="w-full max-w-md">
           <Link to="/" className="mb-8 flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600">
@@ -178,8 +182,8 @@ export default function LoginPage() {
             </span>
           </Link>
 
-          <h1 className="mb-2 text-3xl font-bold">Bienvenido de nuevo</h1>
-          <p className="mb-8 text-gray-600">Inicia sesión para continuar con tus estudios.</p>
+          <h1 className="mb-2 text-3xl font-bold">{t("auth.welcome")}</h1>
+          <p className="mb-8 text-gray-600">{t("auth.loginDescription")}</p>
 
           {(planSeleccionado === "premium" || planSeleccionado === "premium_plus") && (
             <div className="mb-6 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
@@ -189,7 +193,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <div className="relative mt-2">
                 <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -205,7 +209,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <div className="relative mt-2">
                 <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -231,7 +235,7 @@ export default function LoginPage() {
               disabled={cargando || cargandoGoogle}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              {cargando ? "Ingresando..." : "Iniciar sesión"}
+              {cargando ? t("auth.loggingIn") : t("common.login")}
             </Button>
 
             {googleClientId ? (

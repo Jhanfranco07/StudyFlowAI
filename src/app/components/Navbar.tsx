@@ -1,20 +1,11 @@
 import { Link } from "react-router";
-import { GraduationCap, Languages } from "lucide-react";
+import { GraduationCap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
+import LanguageToggle from "./LanguageToggle";
 
 export default function Navbar() {
-  const abrirTraduccion = () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const paginaActual = encodeURIComponent(window.location.href);
-    window.open(
-      `https://translate.google.com/translate?sl=es&tl=en&u=${paginaActual}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  };
+  const { t } = useTranslation();
 
   return (
     <nav className="fixed left-0 right-0 top-0 z-50 border-b border-gray-200 bg-white/85 backdrop-blur-md">
@@ -30,44 +21,34 @@ export default function Navbar() {
 
         <div className="hidden items-center gap-8 md:flex">
           <a href="#inicio" className="text-gray-600 transition-colors hover:text-gray-900">
-            Inicio
+            {t("nav.home")}
           </a>
           <a href="#beneficios" className="text-gray-600 transition-colors hover:text-gray-900">
-            Beneficios
+            {t("nav.benefits")}
           </a>
           <a href="#caracteristicas" className="text-gray-600 transition-colors hover:text-gray-900">
-            Características
+            {t("nav.features")}
           </a>
           <a href="#colaborativo" className="text-gray-600 transition-colors hover:text-gray-900">
-            Equipos
+            {t("nav.teams")}
           </a>
           <a href="#precios" className="text-gray-600 transition-colors hover:text-gray-900">
-            Precios
+            {t("nav.pricing")}
           </a>
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={abrirTraduccion}
-            aria-label="Traducir página"
-            title="Traducir página"
-            className="h-9 rounded-lg border-blue-100 bg-blue-50/70 px-3 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
-          >
-            <Languages className="h-4 w-4" />
-            <span className="hidden lg:inline">Traducir</span>
-          </Button>
+          <LanguageToggle />
           <Link to="/login">
             <Button variant="ghost" className="px-3 text-sm sm:px-4">
-              <span className="hidden sm:inline">Iniciar sesión</span>
-              <span className="sm:hidden">Entrar</span>
+              <span className="hidden sm:inline">{t("common.login")}</span>
+              <span className="sm:hidden">{t("common.enter")}</span>
             </Button>
           </Link>
           <Link to="/register?plan=gratis">
             <Button className="bg-gradient-to-r from-blue-600 to-purple-600 px-3 text-sm hover:from-blue-700 hover:to-purple-700 sm:px-4">
-              <span className="hidden sm:inline">Empieza gratis</span>
-              <span className="sm:hidden">Gratis</span>
+              <span className="hidden sm:inline">{t("common.startFree")}</span>
+              <span className="sm:hidden">{t("common.free")}</span>
             </Button>
           </Link>
         </div>

@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   ArrowRight,
@@ -269,6 +270,17 @@ function SectionLabel({ children, dark = false }: { children: string; dark?: boo
 }
 
 export default function LandingPage() {
+  const { t } = useTranslation();
+  const problemCopy = t("landing.problemCards", { returnObjects: true }) as Array<{ title: string; text: string }>;
+  const featureCopy = t("landing.features", { returnObjects: true }) as Array<{ category: string; title: string; text: string }>;
+  const planCopy = t("landing.plans", { returnObjects: true }) as Array<{ name: string; subtitle: string; features: string[]; cta: string }>;
+  const stepCopy = t("landing.steps", { returnObjects: true }) as Array<{ title: string; text: string }>;
+  const comparisonCopy = t("landing.comparison", { returnObjects: true }) as Array<{ title: string; description: string; items: string[] }>;
+  const localizedProblems = problemas.map((item, index) => ({ ...item, titulo: problemCopy[index].title, texto: problemCopy[index].text }));
+  const localizedFeatures = funcionalidades.map((item, index) => ({ ...item, categoria: featureCopy[index].category, titulo: featureCopy[index].title, texto: featureCopy[index].text }));
+  const localizedPlans = planes.map((item, index) => ({ ...item, nombre: planCopy[index].name, subtitulo: planCopy[index].subtitle, caracteristicas: planCopy[index].features, cta: planCopy[index].cta }));
+  const localizedSteps = pasos.map((item, index) => ({ ...item, titulo: stepCopy[index].title, texto: stepCopy[index].text }));
+  const localizedComparison = comparacion.map((item, index) => ({ ...item, titulo: comparisonCopy[index].title, descripcion: comparisonCopy[index].description, items: comparisonCopy[index].items }));
   return (
     <div className="min-h-screen overflow-hidden bg-white text-slate-950">
       <Navbar />
@@ -285,7 +297,7 @@ export default function LandingPage() {
           <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[0.92fr_1.08fr]">
             <div className="sf-reveal">
               <div className="mb-6 flex flex-wrap gap-3">
-                {["IA académica", "Prioridad automática", "Menos estrés"].map((badge) => (
+                {(t("landing.badges", { returnObjects: true }) as string[]).map((badge) => (
                   <span key={badge} className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-blue-50 shadow-lg shadow-blue-950/20 backdrop-blur">
                     <Zap className="h-4 w-4 text-cyan-300" />
                     {badge}
@@ -293,30 +305,30 @@ export default function LandingPage() {
                 ))}
               </div>
               <h1 className="max-w-3xl text-4xl font-black leading-[0.98] tracking-normal sm:text-6xl lg:text-7xl">
-                Deja de organizarte.{" "}
+                {t("landing.headline")}{" "}
                 <span className="bg-gradient-to-r from-cyan-200 via-blue-300 to-purple-300 bg-clip-text text-transparent">
-                  Empieza a avanzar.
+                  {t("landing.headlineAccent")}
                 </span>
               </h1>
               <p className="mt-7 max-w-2xl text-lg leading-8 text-slate-300 sm:text-xl">
-                StudyFlow AI prioriza tus tareas, planifica tu semana y te ayuda a reducir el estrés académico con inteligencia artificial.
+                {t("landing.description")}
               </p>
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                 <Button asChild size="lg" className="sf-button h-12 rounded-xl bg-white px-7 text-base text-blue-700 shadow-2xl shadow-blue-500/25 hover:bg-blue-50">
                   <Link to="/register?plan=gratis">
-                    Empieza gratis
+                    {t("common.startFree")}
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
                 <Button asChild size="lg" variant="outline" className="sf-button h-12 rounded-xl border-white/20 bg-white/10 px-7 text-base text-white backdrop-blur hover:bg-white/15 hover:text-white">
                   <Link to="/login">
-                    Ver demo
+                    {t("landing.demo")}
                     <ArrowRight className="h-5 w-5" />
                   </Link>
                 </Button>
               </div>
               <p className="mt-5 max-w-xl text-sm leading-6 text-slate-400">
-                Ideal para estudiantes con tareas, exámenes, entregas y trabajos grupales acumulados.
+                {t("landing.ideal")}
               </p>
             </div>
 
@@ -336,16 +348,16 @@ export default function LandingPage() {
                     <BrainCircuit className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold">IA priorizando</p>
-                    <p className="text-xs text-slate-500">4 pendientes críticos</p>
+                    <p className="text-sm font-bold">{t("landing.aiPrioritizing")}</p>
+                    <p className="text-xs text-slate-500">{t("landing.criticalPending")}</p>
                   </div>
                 </div>
               </div>
 
               <div className="sf-float absolute -right-2 top-28 hidden max-w-[14rem] rounded-2xl border border-cyan-200/60 bg-white p-4 text-slate-950 shadow-2xl md:block">
-                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Radar académico</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">{t("landing.academicRadar")}</p>
                 <p className="mt-1 text-2xl font-black text-slate-950">82%</p>
-                <p className="text-xs text-slate-500">Riesgo reducido esta semana</p>
+                <p className="text-xs text-slate-500">{t("landing.reducedRisk")}</p>
               </div>
 
               <div className="absolute -bottom-6 left-4 max-w-[18rem] rounded-2xl border border-slate-200 bg-white p-4 text-slate-950 shadow-2xl sm:left-10">
@@ -354,8 +366,8 @@ export default function LandingPage() {
                     <Target className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="font-bold">Siguiente mejor acción</p>
-                    <p className="mt-1 text-sm text-slate-500">Estudiar 45 min para Cálculo antes de avanzar con la entrega grupal.</p>
+                    <p className="font-bold">{t("landing.nextAction")}</p>
+                    <p className="mt-1 text-sm text-slate-500">{t("landing.nextActionText")}</p>
                   </div>
                 </div>
               </div>
@@ -368,17 +380,17 @@ export default function LandingPage() {
           <div className="mx-auto max-w-7xl">
             <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
               <div className="sf-reveal">
-                <SectionLabel>Problema real</SectionLabel>
-                <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">¿Tu semana académica se siente fuera de control?</h2>
+                <SectionLabel>{t("landing.realProblem")}</SectionLabel>
+                <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.outOfControl")}</h2>
                 <p className="mt-5 text-lg leading-8 text-slate-600">
-                  Cuando se mezclan cursos, exámenes, entregas y trabajos en equipo, organizarse también se vuelve otra tarea.
+                  {t("landing.problemDescription")}
                 </p>
               </div>
               <div className="sf-reveal rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-purple-50 p-5 shadow-xl shadow-amber-100/50">
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-bold text-amber-700">Carga mental detectada</p>
-                    <p className="mt-1 text-2xl font-black text-slate-950">7 pendientes compiten por tu atención</p>
+                    <p className="text-sm font-bold text-amber-700">{t("landing.mentalLoad")}</p>
+                    <p className="mt-1 text-2xl font-black text-slate-950">{t("landing.competingTasks")}</p>
                   </div>
                   <div className="hidden h-16 w-16 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-lg sm:flex">
                     <AlertTriangle className="h-8 w-8" />
@@ -388,7 +400,7 @@ export default function LandingPage() {
             </div>
 
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-              {problemas.map((problema) => (
+              {localizedProblems.map((problema) => (
                 <Card key={problema.titulo} className="sf-reveal group border-amber-100 bg-gradient-to-br from-white to-amber-50/70 shadow-sm transition duration-300 hover:-translate-y-1 hover:border-amber-200 hover:shadow-xl">
                   <CardContent className="p-6">
                     <div className="mb-5 flex h-13 w-13 items-center justify-center rounded-2xl bg-white text-amber-600 shadow-lg shadow-amber-100 transition group-hover:scale-105">
@@ -408,14 +420,14 @@ export default function LandingPage() {
           <div className="absolute inset-0 -z-10 opacity-20 [background-image:linear-gradient(90deg,rgba(255,255,255,0.12)_1px,transparent_1px)] [background-size:96px_96px]" />
           <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
             <div className="sf-reveal">
-              <SectionLabel dark>Solución</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Tu plan académico, organizado por IA</h2>
+              <SectionLabel dark>{t("landing.solution")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.organizedByAi")}</h2>
               <p className="mt-5 text-lg leading-8 text-slate-300">
-                StudyFlow AI centraliza cursos, tareas, exámenes, horarios, alertas, progreso, proyectos grupales y recomendaciones académicas para que tengas claridad antes de empezar.
+                {t("landing.solutionDescription")}
               </p>
             </div>
             <div className="sf-reveal grid gap-4 sm:grid-cols-2">
-              {["Cursos", "Tareas", "Exámenes", "Horarios", "Alertas", "Progreso", "Proyectos grupales", "Recomendaciones IA"].map((item, index) => (
+              {(t("landing.solutionItems", { returnObjects: true }) as string[]).map((item, index) => (
                 <div key={item} className="group rounded-2xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl shadow-slate-950/20 backdrop-blur transition duration-300 hover:-translate-y-1 hover:border-cyan-300/50 hover:bg-white/[0.1]">
                   <div className="mb-4 flex items-center gap-3">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-300/10 text-cyan-200 ring-1 ring-cyan-200/20">
@@ -435,14 +447,14 @@ export default function LandingPage() {
         <section id="caracteristicas" className="bg-slate-50 px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center sf-reveal">
-              <SectionLabel>Funcionalidades</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Todo lo que necesitas para saber qué hacer primero</h2>
+              <SectionLabel>{t("landing.functionality")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.everythingYouNeed")}</h2>
               <p className="mt-5 text-lg leading-8 text-slate-600">
-                Herramientas pensadas para carga académica real, no para listas genéricas.
+                {t("landing.realLoad")}
               </p>
             </div>
             <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-              {funcionalidades.map((item) => (
+              {localizedFeatures.map((item) => (
                 <Card key={item.titulo} className="sf-reveal group relative overflow-hidden border-white bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-950/10">
                   <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${item.color}`} />
                   <CardContent className="p-6">
@@ -463,13 +475,13 @@ export default function LandingPage() {
           <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-blue-50/80 to-transparent" />
           <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div className="sf-reveal">
-              <SectionLabel>Trabajo en equipo</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Organiza trabajos grupales sin desorden</h2>
+              <SectionLabel>{t("landing.teamwork")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.organizeTeams")}</h2>
               <p className="mt-5 text-lg leading-8 text-slate-600">
-                Coordina trabajos grupales con claridad: asigna tareas, revisa avances y evita que todo quede para el último día.
+                {t("landing.teamworkDescription")}
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                {["Tareas compartidas", "Responsables visibles", "Fechas claras", "Avance por integrante", "Estados tipo tablero", "Exposiciones y finales"].map((beneficio) => (
+                {(t("landing.teamBenefits", { returnObjects: true }) as string[]).map((beneficio) => (
                   <div key={beneficio} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                     <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
                     <span className="text-sm font-bold text-slate-700">{beneficio}</span>
@@ -520,14 +532,14 @@ export default function LandingPage() {
         <section className="bg-gradient-to-br from-blue-50 via-white to-purple-50 px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center sf-reveal">
-              <SectionLabel>Diferencial</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">¿Por qué StudyFlow AI es diferente?</h2>
+              <SectionLabel>{t("landing.comparisonLabel")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.comparisonTitle")}</h2>
               <p className="mt-5 text-lg leading-8 text-slate-600">
-                No reemplaza tus herramientas favoritas: convierte tu carga académica en decisiones claras.
+                {t("landing.comparisonDescription")}
               </p>
             </div>
             <div className="mt-12 grid gap-6 lg:grid-cols-2">
-              {comparacion.map((columna, index) => (
+              {localizedComparison.map((columna, index) => (
                 <div key={columna.titulo} className={`sf-reveal rounded-[2rem] border p-7 ${columna.estilo}`}>
                   <div className="mb-6 flex items-center gap-4">
                     <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${index === 1 ? "bg-white/10 text-cyan-200" : "bg-slate-100 text-slate-500"}`}>
@@ -555,12 +567,12 @@ export default function LandingPage() {
         <section className="px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center sf-reveal">
-              <SectionLabel>Cómo funciona</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Tres pasos para avanzar con menos carga mental</h2>
+              <SectionLabel>{t("landing.howItWorks")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.threeSteps")}</h2>
             </div>
             <div className="relative mt-14 grid gap-6 md:grid-cols-3">
               <div className="absolute left-[16%] right-[16%] top-10 hidden h-1 rounded-full bg-gradient-to-r from-blue-500 via-cyan-400 to-purple-500 md:block" />
-              {pasos.map((paso) => (
+              {localizedSteps.map((paso) => (
                 <div key={paso.numero} className="sf-reveal group relative rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-950/10">
                   <div className="mb-7 flex items-center justify-between">
                     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/20">
@@ -579,15 +591,15 @@ export default function LandingPage() {
         <section className="bg-slate-50 px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center sf-reveal">
-              <SectionLabel>Feedback</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Feedback de estudiantes que probaron StudyFlow AI</h2>
+              <SectionLabel>{t("landing.feedback")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.studentFeedback")}</h2>
             </div>
             <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               {testimonios.map((testimonio) => (
                 <Card key={testimonio.nombre} className="sf-reveal border-white bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
                   <CardContent className="p-6">
                     <div className="mb-5 flex items-center justify-between gap-3">
-                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">PMV probado</span>
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{t("landing.testedMvp")}</span>
                       <div className="flex gap-0.5">
                         {[...Array(5)].map((_, i) => (
                           <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -615,17 +627,17 @@ export default function LandingPage() {
         <section id="precios" className="px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center sf-reveal">
-              <SectionLabel>Precios</SectionLabel>
-              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Planes simples para estudiantes</h2>
-              <p className="mt-5 text-lg leading-8 text-slate-600">Empieza gratis y escala cuando necesites más cursos, IA y colaboración.</p>
+              <SectionLabel>{t("nav.pricing")}</SectionLabel>
+              <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.simplePlans")}</h2>
+              <p className="mt-5 text-lg leading-8 text-slate-600">{t("landing.pricingDescription")}</p>
             </div>
             <div className="mx-auto mt-12 grid max-w-7xl gap-6 lg:grid-cols-3">
-              {planes.map((plan) => (
+              {localizedPlans.map((plan) => (
                 <Card key={plan.nombre} className={`sf-reveal relative overflow-hidden border-2 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-2xl ${plan.destacado ? "border-blue-500 shadow-xl shadow-blue-600/10" : "border-slate-200"}`}>
                   {plan.destacado && (
                     <>
                       <div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-blue-600 via-cyan-400 to-purple-600" />
-                      <div className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-1.5 text-sm font-bold text-white">Más completo</div>
+                      <div className="absolute right-6 top-6 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 px-4 py-1.5 text-sm font-bold text-white">{t("landing.mostComplete")}</div>
                     </>
                   )}
                   <CardContent className="p-7 pt-10 sm:p-9 sm:pt-12">
@@ -633,7 +645,7 @@ export default function LandingPage() {
                     <p className="mt-2 min-h-12 text-slate-600">{plan.subtitulo}</p>
                     <div className="mt-7">
                       <span className="text-5xl font-black text-slate-950">{plan.precio}</span>
-                      <span className="text-slate-500">/mes</span>
+                      <span className="text-slate-500">{t("landing.perMonth")}</span>
                     </div>
                     <ul className="mt-8 space-y-3">
                       {plan.caracteristicas.map((caracteristica) => (
@@ -646,7 +658,7 @@ export default function LandingPage() {
                     <Button asChild variant={plan.destacado ? "default" : "outline"} className={`sf-button mt-8 h-12 w-full rounded-xl ${plan.destacado ? "bg-gradient-to-r from-blue-600 to-purple-600 shadow-lg shadow-blue-600/20 hover:from-blue-700 hover:to-purple-700" : "border-slate-300"}`}>
                       <Link to={plan.destino}>{plan.cta}</Link>
                     </Button>
-                    {plan.nombre === "Premium Plus" ? (
+                    {plan.destino.includes("premium_plus") ? (
                       <Button asChild variant="ghost" className="mt-3 h-11 w-full rounded-xl text-blue-700">
                         <Link to="/register?plan=premium_plus">Ver funciones para posgrado</Link>
                       </Button>
@@ -655,21 +667,21 @@ export default function LandingPage() {
                 </Card>
               ))}
             </div>
-            <p className="mt-6 text-center text-sm text-slate-500">Precio referencial para validación del proyecto.</p>
+            <p className="mt-6 text-center text-sm text-slate-500">{t("landing.referencePrice")}</p>
           </div>
         </section>
 
         <section className="relative isolate overflow-hidden bg-slate-950 px-4 py-16 text-white sm:px-6 sm:py-24">
           <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.45),transparent_35%),linear-gradient(135deg,#020617,#1e1b4b)]" />
           <div className="mx-auto max-w-4xl text-center sf-reveal">
-            <SectionLabel dark>Empieza hoy</SectionLabel>
-            <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">Empieza a estudiar con más claridad desde hoy.</h2>
+            <SectionLabel dark>{t("landing.startToday")}</SectionLabel>
+            <h2 className="mt-4 text-3xl font-black leading-tight sm:text-5xl">{t("landing.clarityToday")}</h2>
             <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-blue-50">
-              Organiza tus cursos, prioriza tus pendientes y deja que la IA te ayude a avanzar.
+              {t("landing.clarityDescription")}
             </p>
             <Button asChild size="lg" className="sf-button mt-9 h-12 rounded-xl bg-white px-7 text-base text-blue-700 shadow-2xl shadow-blue-500/25 hover:bg-blue-50">
               <Link to="/register?plan=gratis">
-                Probar StudyFlow gratis
+                {t("landing.tryFree")}
                 <ArrowRight className="h-5 w-5" />
               </Link>
             </Button>
@@ -692,24 +704,24 @@ export default function LandingPage() {
               </p>
             </div>
             <div>
-              <h3 className="font-bold">Producto</h3>
+              <h3 className="font-bold">{t("landing.product")}</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-400">
-                <li><a href="#caracteristicas" className="transition hover:text-white">Características</a></li>
-                <li><a href="#colaborativo" className="transition hover:text-white">Trabajo colaborativo</a></li>
-                <li><a href="#precios" className="transition hover:text-white">Precios</a></li>
+                <li><a href="#caracteristicas" className="transition hover:text-white">{t("nav.features")}</a></li>
+                <li><a href="#colaborativo" className="transition hover:text-white">{t("landing.collaborativeWork")}</a></li>
+                <li><a href="#precios" className="transition hover:text-white">{t("nav.pricing")}</a></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-bold">Acceso</h3>
+              <h3 className="font-bold">{t("landing.access")}</h3>
               <ul className="mt-4 space-y-2 text-sm text-slate-400">
-                <li><Link to="/login" className="transition hover:text-white">Iniciar sesión</Link></li>
-                <li><Link to="/register?plan=gratis" className="transition hover:text-white">Empieza gratis</Link></li>
-                <li><Link to="/login" className="transition hover:text-white">Ver demo</Link></li>
+                <li><Link to="/login" className="transition hover:text-white">{t("common.login")}</Link></li>
+                <li><Link to="/register?plan=gratis" className="transition hover:text-white">{t("common.startFree")}</Link></li>
+                <li><Link to="/login" className="transition hover:text-white">{t("landing.demo")}</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-bold">Síguenos en redes</h3>
-              <p className="mt-4 text-sm leading-6 text-slate-400">Tips de estudio, productividad académica y novedades de StudyFlow AI.</p>
+              <h3 className="font-bold">{t("landing.followUs")}</h3>
+              <p className="mt-4 text-sm leading-6 text-slate-400">{t("landing.socialDescription")}</p>
               <div className="mt-5 flex gap-3">
                 {[
                   [Instagram, "Instagram"],
@@ -725,7 +737,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="mt-10 border-t border-white/10 pt-8 text-center text-sm text-slate-500">
-            <p>&copy; 2026 StudyFlow AI. Todos los derechos reservados.</p>
+            <p>&copy; 2026 StudyFlow AI. {t("landing.rights")}</p>
           </div>
         </div>
       </footer>

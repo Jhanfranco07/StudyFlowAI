@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, CheckCircle2, GraduationCap, ShieldCheck, WalletCards } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { api, type ConfiguracionPagoApi, type PlanPago } from "../data/api";
 import { useStudyFlow } from "../data/studyflow-store";
 import { Button } from "../components/ui/button";
+import LanguageToggle from "../components/LanguageToggle";
 
 export default function CheckoutPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { usuarioActual, sincronizarConBackend } = useStudyFlow();
@@ -75,9 +78,12 @@ export default function CheckoutPage() {
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:py-14">
       <div className="mx-auto max-w-4xl">
-        <Link to="/" className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950">
-          <ArrowLeft className="h-4 w-4" /> Volver al inicio
-        </Link>
+        <div className="mb-8 flex items-center justify-between gap-4">
+          <Link to="/" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-950">
+            <ArrowLeft className="h-4 w-4" /> {t("common.backHome")}
+          </Link>
+          <LanguageToggle />
+        </div>
 
         <div className="grid overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm md:grid-cols-[1fr_0.85fr]">
           <section className="p-6 sm:p-9">
@@ -87,43 +93,43 @@ export default function CheckoutPage() {
               </span>
               <div>
                 <p className="font-semibold text-slate-950">StudyFlow AI</p>
-                <p className="text-sm text-slate-500">Pago seguro con Mercado Pago</p>
+                <p className="text-sm text-slate-500">{t("checkout.securePayment")}</p>
               </div>
             </div>
 
-            <p className="text-sm font-semibold text-blue-600">MEJORA TU PLAN</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-950">Activa {datosPlan?.nombre.replace("StudyFlow ", "") ?? "tu plan"}</h1>
-            <p className="mt-3 text-slate-600">Confirma tu plan y continúa a Mercado Pago para completar el proceso.</p>
+            <p className="text-sm font-semibold text-blue-600">{t("checkout.improvePlan")}</p>
+            <h1 className="mt-2 text-3xl font-bold text-slate-950">{t("checkout.activate", { plan: datosPlan?.nombre.replace("StudyFlow ", "") ?? "" })}</h1>
+            <p className="mt-3 text-slate-600">{t("checkout.confirm")}</p>
 
             <div className="mt-8 space-y-4 text-sm text-slate-700">
-              <p className="flex gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" /> Tus datos de pago se procesan de forma segura.</p>
-              <p className="flex gap-3"><WalletCards className="h-5 w-5 shrink-0 text-blue-600" /> Completa el proceso sin compartir tus datos financieros con StudyFlow.</p>
-              <p className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-violet-600" /> Tu plan se activa automáticamente al confirmar el pago.</p>
+              <p className="flex gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" /> {t("checkout.secureData")}</p>
+              <p className="flex gap-3"><WalletCards className="h-5 w-5 shrink-0 text-blue-600" /> {t("checkout.privateFinancial")}</p>
+              <p className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-violet-600" /> {t("checkout.automaticActivation")}</p>
             </div>
           </section>
 
           <aside className="border-t border-slate-200 bg-slate-50 p-6 sm:p-9 md:border-l md:border-t-0">
-            <p className="text-sm text-slate-500">Total</p>
+            <p className="text-sm text-slate-500">{t("checkout.total")}</p>
             <p className="mt-2 text-4xl font-bold text-slate-950">S/ {datosPlan ? (datosPlan.monto / 100).toFixed(2) : "--"}</p>
-            <p className="mt-2 text-sm text-slate-500">Plan seleccionado</p>
+            <p className="mt-2 text-sm text-slate-500">{t("checkout.selectedPlan")}</p>
 
             {error ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
             {exito ? <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{exito}</div> : null}
 
             {!usuarioActual ? (
               <div className="mt-8 space-y-3">
-                <Button asChild className="w-full"><Link to={`/login?plan=${plan}`}>Iniciar sesión para pagar</Link></Button>
-                <Button asChild variant="outline" className="w-full"><Link to={`/register?plan=${plan}`}>Crear cuenta</Link></Button>
+                <Button asChild className="w-full"><Link to={`/login?plan=${plan}`}>{t("checkout.loginToPay")}</Link></Button>
+                <Button asChild variant="outline" className="w-full"><Link to={`/register?plan=${plan}`}>{t("checkout.createAccount")}</Link></Button>
               </div>
             ) : exito ? (
-              <Button className="mt-8 w-full" onClick={() => navigate("/app")}>Ir al dashboard</Button>
+              <Button className="mt-8 w-full" onClick={() => navigate("/app")}>{t("checkout.dashboard")}</Button>
             ) : (
               <Button className="mt-8 w-full bg-[#009ee3] hover:bg-[#008ed0]" disabled={!datosPlan || cargando} onClick={abrirCheckout}>
-                {cargando ? "Validando pago..." : "Pagar con Mercado Pago"}
+                {cargando ? t("checkout.validating") : t("checkout.pay")}
               </Button>
             )}
 
-            <p className="mt-5 text-center text-xs leading-5 text-slate-500">Serás redirigido a Mercado Pago para continuar.</p>
+            <p className="mt-5 text-center text-xs leading-5 text-slate-500">{t("checkout.redirect")}</p>
           </aside>
         </div>
       </div>

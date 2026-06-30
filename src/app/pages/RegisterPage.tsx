@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { GraduationCap, Lock, Mail, School, User } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useStudyFlow, type TipoPerfilUsuario } from "../data/studyflow-store";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -13,6 +14,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { TIPOS_PERFIL, type PlanUsuario } from "../data/plan-rules";
+import LanguageToggle from "../components/LanguageToggle";
 
 type FormularioRegistro = {
   name: string;
@@ -42,6 +44,7 @@ function describirOnboardingPerfil(tipoPerfil: TipoPerfilUsuario) {
 }
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { registrarUsuario } = useStudyFlow();
@@ -91,7 +94,8 @@ export default function RegisterPage() {
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="flex items-center justify-center bg-white p-8">
+      <div className="relative flex items-center justify-center bg-white p-8">
+        <div className="absolute right-4 top-4 sm:right-6 sm:top-6"><LanguageToggle /></div>
         <div className="w-full max-w-md">
           <Link to="/" className="mb-8 flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-purple-600">
@@ -102,12 +106,12 @@ export default function RegisterPage() {
             </span>
           </Link>
 
-          <h1 className="mb-2 text-3xl font-bold">Crea tu cuenta</h1>
-          <p className="mb-2 text-gray-600">Empieza a organizar tu semestre desde hoy.</p>
+          <h1 className="mb-2 text-3xl font-bold">{t("auth.createAccount")}</h1>
+          <p className="mb-2 text-gray-600">{t("auth.registerDescription")}</p>
           <p className="mb-8 text-sm text-gray-500">{describirOnboardingPerfil(formData.tipoPerfil)}</p>
 
           <div className="mb-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-            <p className="text-sm font-medium text-blue-700">Plan seleccionado</p>
+            <p className="text-sm font-medium text-blue-700">{t("auth.selectedPlan")}</p>
             <p className="mt-1 text-lg font-semibold text-blue-900">{etiquetasPlan[formData.plan]}</p>
             <p className="mt-1 text-sm text-blue-700">
               {formData.plan === "gratis"
@@ -118,7 +122,7 @@ export default function RegisterPage() {
 
           <form onSubmit={handleRegister} className="space-y-5">
             <div>
-              <Label htmlFor="name">Nombres</Label>
+              <Label htmlFor="name">{t("auth.names")}</Label>
               <div className="relative mt-2">
                 <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -133,7 +137,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label htmlFor="email">Correo electrónico</Label>
+              <Label htmlFor="email">{t("auth.email")}</Label>
               <div className="relative mt-2">
                 <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -149,7 +153,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">{t("auth.password")}</Label>
               <div className="relative mt-2">
                 <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -166,7 +170,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label htmlFor="university">Universidad</Label>
+              <Label htmlFor="university">{t("auth.university")}</Label>
               <div className="relative mt-2">
                 <School className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <Input
@@ -181,7 +185,7 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label htmlFor="career">Carrera</Label>
+              <Label htmlFor="career">{t("auth.career")}</Label>
               <Input
                 id="career"
                 value={formData.career}
@@ -192,13 +196,13 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label>Tipo de perfil</Label>
+              <Label>{t("auth.profileType")}</Label>
               <Select
                 value={formData.tipoPerfil}
                 onValueChange={(tipoPerfil: TipoPerfilUsuario) => setFormData({ ...formData, tipoPerfil })}
               >
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Selecciona tu perfil" />
+                  <SelectValue placeholder={t("auth.selectProfile")} />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(TIPOS_PERFIL).map(([valor, etiqueta]) => (
@@ -211,13 +215,13 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <Label>Ciclo o semestre</Label>
+              <Label>{t("auth.semester")}</Label>
               <Select
                 value={formData.semester}
                 onValueChange={(semester) => setFormData({ ...formData, semester })}
               >
                 <SelectTrigger className="mt-2">
-                  <SelectValue placeholder="Selecciona tu ciclo" />
+                  <SelectValue placeholder={t("auth.selectSemester")} />
                 </SelectTrigger>
                 <SelectContent>
                   {Array.from({ length: 10 }, (_, index) => (
@@ -240,14 +244,14 @@ export default function RegisterPage() {
               disabled={cargando}
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
             >
-              {cargando ? "Creando cuenta..." : "Crear cuenta y continuar"}
+              {cargando ? t("auth.creating") : t("auth.createContinue")}
             </Button>
           </form>
 
           <p className="mt-8 text-center text-gray-600">
-            Ya tienes una cuenta?{" "}
+            {t("auth.alreadyAccount")}{" "}
             <Link to="/login" className="font-semibold text-blue-600 hover:underline">
-              Inicia sesión
+              {t("common.login")}
             </Link>
           </p>
         </div>

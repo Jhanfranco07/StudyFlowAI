@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router";
 import {
   Bell,
@@ -21,21 +22,22 @@ import { obtenerAlertasInteligentes, useStudyFlow } from "../data/studyflow-stor
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { path: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { path: "/app/courses", label: "Mis cursos", icon: BookOpen },
-  { path: "/app/tasks", label: "Tareas", icon: CheckSquare },
-  { path: "/app/projects", label: "Tesis y proyectos", icon: Milestone, premiumPlus: true },
-  { path: "/app/team-projects", label: "Trabajos grupales", icon: FolderKanban },
-  { path: "/app/exams", label: "Exámenes", icon: ClipboardList },
-  { path: "/app/planner", label: "Planificador", icon: Calendar },
-  { path: "/app/assistant", label: "Asistente IA", icon: Sparkles },
-  { path: "/app/progress", label: "Progreso", icon: TrendingUp },
-  { path: "/app/notifications", label: "Notificaciones", icon: Bell },
-  { path: "/app/settings", label: "Configuración", icon: Settings },
+  { path: "/app", label: "nav.dashboard", icon: LayoutDashboard },
+  { path: "/app/courses", label: "nav.courses", icon: BookOpen },
+  { path: "/app/tasks", label: "nav.tasks", icon: CheckSquare },
+  { path: "/app/projects", label: "nav.thesis", icon: Milestone, premiumPlus: true },
+  { path: "/app/team-projects", label: "nav.teamProjects", icon: FolderKanban },
+  { path: "/app/exams", label: "nav.exams", icon: ClipboardList },
+  { path: "/app/planner", label: "nav.planner", icon: Calendar },
+  { path: "/app/assistant", label: "nav.assistant", icon: Sparkles },
+  { path: "/app/progress", label: "nav.progress", icon: TrendingUp },
+  { path: "/app/notifications", label: "nav.notifications", icon: Bell },
+  { path: "/app/settings", label: "nav.settings", icon: Settings },
   { path: "/admin", label: "Admin", icon: ShieldCheck, adminOnly: true },
 ];
 
 export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const { usuarioActual, notificaciones, cerrarSesion, cursos, tareas, examenes, bloquesPlanificador } =
     useStudyFlow();
@@ -87,7 +89,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
               }`}
             >
               <Icon className="h-5 w-5" />
-              <span className="font-medium">{item.label}</span>
+              <span className="font-medium">{item.adminOnly ? item.label : t(item.label)}</span>
               {item.path === "/app/notifications" && totalNotificacionesVisibles > 0 && (
                 <span className="ml-auto rounded-full bg-red-500 px-2 py-0.5 text-xs text-white">
                   {totalNotificacionesVisibles}
@@ -100,11 +102,11 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
 
       <div className="mt-8 px-6 pb-6">
         <div className="rounded-2xl bg-gradient-to-br from-slate-900 via-blue-900 to-purple-900 p-4 text-white">
-          <p className="text-sm text-white/70">Sesión activa</p>
+          <p className="text-sm text-white/70">{t("nav.activeSession")}</p>
           <p className="mt-1 font-semibold">
-            {usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : "Invitado"}
+            {usuarioActual ? `${usuarioActual.nombres} ${usuarioActual.apellidos}` : t("nav.guest")}
           </p>
-          <p className="text-sm text-white/70">{usuarioActual?.carrera ?? "Completa tu perfil"}</p>
+          <p className="text-sm text-white/70">{usuarioActual?.carrera ?? t("nav.completeProfile")}</p>
           <div className="mt-3 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
             {planActual.etiqueta}
           </div>
@@ -114,7 +116,7 @@ export default function Sidebar({ mobile = false }: { mobile?: boolean }) {
             onClick={cerrarSesion}
           >
             <LogOut className="mr-2 h-4 w-4" />
-            Cerrar sesión
+            {t("nav.logout")}
           </Button>
         </div>
       </div>

@@ -39,6 +39,7 @@ import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "./ui/sheet";
 import SmartAlertActions from "./SmartAlertActions";
+import LanguageToggle from "./LanguageToggle";
 
 type ResultadoBusqueda = {
   id: string;
@@ -407,6 +408,7 @@ export default function DashboardHeader() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <LanguageToggle compact />
             <Button
               variant="ghost"
               size="icon"
