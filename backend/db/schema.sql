@@ -254,3 +254,17 @@ create table if not exists checklist_tarea_grupal (
   completado boolean not null default false,
   creado_en timestamptz not null default now()
 );
+
+create table if not exists pagos_mercadopago (
+  id uuid primary key default gen_random_uuid(),
+  estudiante_id uuid not null references estudiantes(id) on delete cascade,
+  referencia_externa text not null unique,
+  preferencia_id text,
+  pago_id text unique,
+  plan text not null check (plan in ('premium', 'premium_plus')),
+  monto_centimos int not null,
+  moneda text not null default 'PEN',
+  estado text not null default 'pendiente',
+  creado_en timestamptz not null default now(),
+  actualizado_en timestamptz not null default now()
+);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { GraduationCap, School } from "lucide-react";
 import { useStudyFlow, type PerfilUsuario } from "../data/studyflow-store";
 import { DURACIONES_MICRO_SESION, OBJETIVOS_ACADEMICOS, PERFILES_TRABAJO_ESTUDIO, TIPOS_PERFIL } from "../data/plan-rules";
@@ -36,6 +36,8 @@ function describirSiguientePasoPerfil(tipoPerfil: PerfilUsuario["tipoPerfil"]) {
 
 export default function CompleteProfilePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const planSeleccionado = searchParams.get("plan");
   const {
     usuarioActual,
     requiereCompletarPerfilAcademico,
@@ -116,7 +118,11 @@ export default function CompleteProfilePage() {
         return;
       }
 
-      navigate("/app");
+      navigate(
+        planSeleccionado === "premium" || planSeleccionado === "premium_plus"
+          ? `/checkout?plan=${planSeleccionado}`
+          : "/app",
+      );
     } finally {
       setCargando(false);
     }

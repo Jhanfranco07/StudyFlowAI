@@ -1,4 +1,5 @@
 ﻿import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import cors from "cors";
 import express from "express";
 import { OAuth2Client } from "google-auth-library";
@@ -49,6 +50,14 @@ const app = express();
 const puerto = Number(process.env.PORT || 4000);
 const urlBaseDeDatos = process.env.DATABASE_URL;
 const googleClientId = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID;
+const mercadoPagoAccessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+const mercadoPagoSandboxActivo = process.env.MERCADOPAGO_SANDBOX === "true";
+const appPublicUrl = String(process.env.APP_PUBLIC_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const PLANES_PAGO = {
+  premium: { nombre: "StudyFlow Premium", monto: 999 },
+  premium_plus: { nombre: "StudyFlow Premium Plus", monto: 1499 },
+};
 
 app.use(cors());
 app.use(express.json());
@@ -1812,6 +1821,21 @@ async function asegurarColumnasCompatibilidad() {
   await pool.query("alter table estudiantes add column if not exists email_verificado boolean not null default false");
   await pool.query("alter table estudiantes add column if not exists email_verificacion_token text");
   await pool.query("alter table estudiantes add column if not exists email_verificacion_expira timestamptz");
+  await pool.query(`
+    create table if not exists pagos_mercadopago (
+      id uuid primary key default gen_random_uuid(),
+      estudiante_id uuid not null references estudiantes(id) on delete cascade,
+      referencia_externa text not null unique,
+      preferencia_id text,
+      pago_id text unique,
+      plan text not null check (plan in ('premium', 'premium_plus')),
+      monto_centimos int not null,
+      moneda text not null default 'PEN',
+      estado text not null default 'pendiente',
+      creado_en timestamptz not null default now(),
+      actualizado_en timestamptz not null default now()
+    )
+  `);
   await pool.query(
     "create unique index if not exists estudiantes_google_sub_unique on estudiantes (google_sub) where google_sub is not null",
   );
@@ -2204,7 +2228,6 @@ app.post("/api/auth/register", async (request, response) => {
     universidad = "Por definir",
     carrera = "Por definir",
     semestre = "Por definir",
-    plan = "gratis",
     tipoPerfil = "universitario",
   } = request.body;
 
@@ -2281,7 +2304,7 @@ app.post("/api/auth/register", async (request, response) => {
         app_google_calendar as "aplicacionGoogleCalendar",
         app_sugerencias_automaticas as "aplicacionSugerenciasAutomaticas"
       `,
-      [nombres, apellidos, correo, hashContrasena, universidad, carrera, semestre, plan, tipoPerfil],
+      [nombres, apellidos, correo, hashContrasena, universidad, carrera, semestre, "gratis", tipoPerfil],
     );
 
     let verificacionCorreoEnviada = false;
@@ -2302,6 +2325,177 @@ app.post("/api/auth/register", async (request, response) => {
     });
   } catch (error) {
     response.status(500).json({ mensaje: "No se pudo registrar el usuario.", error: error.message });
+  }
+});
+
+app.get("/api/payments/mercadopago/config", (_request, response) => {
+  if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
+    response.status(503).json({ mensaje: "Mercado Pago Sandbox todavía no está configurado." });
+    return;
+  }
+
+  response.json({
+    currency: "PEN",
+    plans: Object.fromEntries(
+      Object.entries(PLANES_PAGO).map(([plan, datos]) => [plan, { ...datos, plan }]),
+    ),
+  });
+});
+
+app.post("/api/payments/mercadopago/preference", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const estudianteId = String(request.headers["x-studyflow-user-id"] || "").trim();
+  const plan = String(request.body?.plan || "").trim();
+  const planPago = PLANES_PAGO[plan];
+
+  if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
+    response.status(503).json({ mensaje: "Mercado Pago Sandbox no está configurado." });
+    return;
+  }
+  if (!estudianteId) {
+    response.status(401).json({ mensaje: "Debes iniciar sesión para realizar el pago." });
+    return;
+  }
+  if (!planPago) {
+    response.status(400).json({ mensaje: "El plan seleccionado no es válido." });
+    return;
+  }
+
+  try {
+    const resultadoUsuario = await pool.query(
+      "select id, correo from estudiantes where id = $1 limit 1",
+      [estudianteId],
+    );
+    const usuario = resultadoUsuario.rows[0];
+    if (!usuario) {
+      response.status(404).json({ mensaje: "No encontramos la cuenta que realizará el pago." });
+      return;
+    }
+
+    const referenciaExterna = randomUUID();
+    const urlRetorno = `${appPublicUrl}/checkout?plan=${plan}`;
+    const respuestaMercadoPago = await fetch("https://api.mercadopago.com/checkout/preferences", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${mercadoPagoAccessToken}`,
+        "Content-Type": "application/json",
+        "X-Idempotency-Key": referenciaExterna,
+      },
+      body: JSON.stringify({
+        items: [{
+          id: plan,
+          title: planPago.nombre,
+          description: "Suscripción de prueba de StudyFlow AI",
+          quantity: 1,
+          currency_id: "PEN",
+          unit_price: planPago.monto / 100,
+        }],
+        external_reference: referenciaExterna,
+        back_urls: {
+          success: `${urlRetorno}&payment_status=success`,
+          pending: `${urlRetorno}&payment_status=pending`,
+          failure: `${urlRetorno}&payment_status=failure`,
+        },
+        auto_return: "approved",
+        binary_mode: true,
+      }),
+    });
+    const preferencia = await respuestaMercadoPago.json();
+
+    if (!respuestaMercadoPago.ok || !preferencia?.id || !preferencia?.sandbox_init_point) {
+      response.status(400).json({
+        mensaje: preferencia?.message || preferencia?.error || "Mercado Pago rechazó la preferencia de prueba.",
+      });
+      return;
+    }
+
+    await pool.query(
+      `insert into pagos_mercadopago
+       (estudiante_id, referencia_externa, preferencia_id, plan, monto_centimos)
+       values ($1, $2, $3, $4, $5)`,
+      [estudianteId, referenciaExterna, preferencia.id, plan, planPago.monto],
+    );
+
+    response.json({ preferenceId: preferencia.id, sandboxInitPoint: preferencia.sandbox_init_point });
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo iniciar el pago de prueba.", error: error.message });
+  }
+});
+
+app.post("/api/payments/mercadopago/confirm", async (request, response) => {
+  if (!pool) return responderSinBase(response);
+
+  const estudianteId = String(request.headers["x-studyflow-user-id"] || "").trim();
+  const paymentId = String(request.body?.paymentId || "").trim();
+  if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
+    response.status(503).json({ mensaje: "Mercado Pago Sandbox no está configurado." });
+    return;
+  }
+  if (!estudianteId || !paymentId) {
+    response.status(400).json({ mensaje: "No se pudo identificar el pago que deseas confirmar." });
+    return;
+  }
+
+  try {
+    const respuestaMercadoPago = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}`, {
+      headers: { Authorization: `Bearer ${mercadoPagoAccessToken}` },
+    });
+    const pago = await respuestaMercadoPago.json();
+    if (!respuestaMercadoPago.ok) {
+      response.status(400).json({ mensaje: pago?.message || "No se pudo consultar el pago en Mercado Pago." });
+      return;
+    }
+    if (pago.status !== "approved") {
+      response.status(409).json({ mensaje: `El pago se encuentra ${pago.status || "sin aprobar"}.` });
+      return;
+    }
+
+    const registro = await pool.query(
+      `select id, plan, monto_centimos as "montoCentimos", estado
+       from pagos_mercadopago
+       where referencia_externa = $1 and estudiante_id = $2
+       limit 1`,
+      [pago.external_reference, estudianteId],
+    );
+    const pagoLocal = registro.rows[0];
+    if (!pagoLocal) {
+      response.status(403).json({ mensaje: "El pago no pertenece a esta cuenta." });
+      return;
+    }
+    if (Math.round(Number(pago.transaction_amount) * 100) !== pagoLocal.montoCentimos) {
+      response.status(409).json({ mensaje: "El importe confirmado no coincide con el plan seleccionado." });
+      return;
+    }
+
+    const cliente = await pool.connect();
+    try {
+      await cliente.query("begin");
+      await cliente.query(
+        `update pagos_mercadopago
+         set pago_id = $1, estado = 'aprobado', actualizado_en = now()
+         where id = $2`,
+        [paymentId, pagoLocal.id],
+      );
+      const actualizado = await cliente.query(
+        "update estudiantes set plan = $1 where id = $2 returning *",
+        [pagoLocal.plan, estudianteId],
+      );
+      await cliente.query("commit");
+
+      response.json({
+        mensaje: `Pago de prueba aprobado. Plan ${PLANES_PAGO[pagoLocal.plan].nombre.replace("StudyFlow ", "")} activado.`,
+        paymentId,
+        usuario: mapearUsuario(actualizado.rows[0]),
+      });
+    } catch (error) {
+      await cliente.query("rollback");
+      throw error;
+    } finally {
+      cliente.release();
+    }
+  } catch (error) {
+    response.status(500).json({ mensaje: "No se pudo confirmar el pago de prueba.", error: error.message });
   }
 });
 

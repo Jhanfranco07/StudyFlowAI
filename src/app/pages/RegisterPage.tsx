@@ -76,7 +76,7 @@ export default function RegisterPage() {
 
     let success = false;
     try {
-      success = await registrarUsuario(formData);
+      success = await registrarUsuario({ ...formData, plan: "gratis" });
     } finally {
       setCargando(false);
     }
@@ -86,7 +86,7 @@ export default function RegisterPage() {
       return;
     }
 
-    navigate("/app");
+    navigate(planInicial === "gratis" ? "/app" : `/checkout?plan=${planInicial}`);
   };
 
   return (
@@ -110,7 +110,9 @@ export default function RegisterPage() {
             <p className="text-sm font-medium text-blue-700">Plan seleccionado</p>
             <p className="mt-1 text-lg font-semibold text-blue-900">{etiquetasPlan[formData.plan]}</p>
             <p className="mt-1 text-sm text-blue-700">
-              No te cobraremos nada ahora. Primero crea tu cuenta y entra al sistema.
+              {formData.plan === "gratis"
+                ? "No necesitas registrar ningún medio de pago."
+                : "Crearás tu cuenta Gratis y luego podrás completar un pago de prueba."}
             </p>
           </div>
 

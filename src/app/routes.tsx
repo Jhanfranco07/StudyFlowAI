@@ -69,6 +69,11 @@ export const router = createBrowserRouter([
     errorElement: <RouteErrorPage />,
   },
   {
+    path: "/checkout",
+    lazy: () => cargarRutaDiferida(() => import("./pages/CheckoutPage")),
+    errorElement: <RouteErrorPage />,
+  },
+  {
     path: "/admin",
     lazy: () => cargarRutaDiferida(() => import("./components/DashboardLayout")),
     errorElement: <RouteErrorPage />,

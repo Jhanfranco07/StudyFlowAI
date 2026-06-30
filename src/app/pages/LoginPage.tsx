@@ -69,7 +69,11 @@ export default function LoginPage() {
       return;
     }
 
-    navigate("/app");
+    navigate(
+      planSeleccionado === "premium" || planSeleccionado === "premium_plus"
+        ? `/checkout?plan=${planSeleccionado}`
+        : "/app",
+    );
   };
 
   useEffect(() => {
@@ -105,7 +109,17 @@ export default function LoginPage() {
             return;
           }
 
-          navigate(resultado === "completar-perfil" ? "/complete-profile" : "/app");
+          const destinoPago =
+            planSeleccionado === "premium" || planSeleccionado === "premium_plus"
+              ? `?plan=${planSeleccionado}`
+              : "";
+          navigate(
+            resultado === "completar-perfil"
+              ? `/complete-profile${destinoPago}`
+              : destinoPago
+                ? `/checkout${destinoPago}`
+                : "/app",
+          );
         },
         auto_select: false,
         cancel_on_tap_outside: true,
@@ -167,9 +181,9 @@ export default function LoginPage() {
           <h1 className="mb-2 text-3xl font-bold">Bienvenido de nuevo</h1>
           <p className="mb-8 text-gray-600">Inicia sesión para continuar con tus estudios.</p>
 
-          {planSeleccionado === "premium" && (
+          {(planSeleccionado === "premium" || planSeleccionado === "premium_plus") && (
             <div className="mb-6 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
-              Tu plan seleccionado fue <strong>Premium</strong>. Inicia sesión para continuar sin pasarela de pago en esta demo.
+              Elegiste <strong>{planSeleccionado === "premium_plus" ? "Premium Plus" : "Premium"}</strong>. Inicia sesión para continuar al pago de prueba.
             </div>
           )}
 

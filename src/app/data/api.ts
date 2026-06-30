@@ -151,6 +151,13 @@ export type TareaApi = {
   }>;
 };
 
+export type PlanPago = "premium" | "premium_plus";
+
+export type ConfiguracionPagoApi = {
+  currency: "PEN";
+  plans: Record<PlanPago, { plan: PlanPago; nombre: string; monto: number }>;
+};
+
 export type ExamenApi = {
   id: string;
   cursoId: string;
@@ -349,6 +356,31 @@ function crearHeadersAdmin(adminId: string) {
 }
 
 export const api = {
+  obtenerConfiguracionMercadoPago() {
+    return request<ConfiguracionPagoApi>("/api/payments/mercadopago/config");
+  },
+  crearPreferenciaMercadoPago(estudianteId: string, plan: PlanPago) {
+    return request<{ preferenceId: string; sandboxInitPoint: string }>(
+      "/api/payments/mercadopago/preference",
+      {
+        method: "POST",
+        headers: { "x-studyflow-user-id": estudianteId },
+        body: JSON.stringify({ plan }),
+        timeoutMs: TIEMPO_ESPERA_API_LENTO,
+      },
+    );
+  },
+  confirmarPagoMercadoPago(estudianteId: string, paymentId: string) {
+    return request<{ mensaje: string; paymentId: string; usuario: UsuarioApi }>(
+      "/api/payments/mercadopago/confirm",
+      {
+        method: "POST",
+        headers: { "x-studyflow-user-id": estudianteId },
+        body: JSON.stringify({ paymentId }),
+        timeoutMs: TIEMPO_ESPERA_API_LENTO,
+      },
+    );
+  },
   iniciarSesion(payload: { correo: string; contrasena: string }) {
     return request<RespuestaInicioSesionApi>("/api/auth/login", {
       method: "POST",
