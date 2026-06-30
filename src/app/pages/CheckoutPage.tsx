@@ -21,7 +21,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     api.obtenerConfiguracionMercadoPago().then(setConfiguracion).catch((fallo) => {
-      setError(fallo instanceof Error ? fallo.message : "No se pudo cargar el checkout de prueba.");
+      setError(fallo instanceof Error ? fallo.message : "No se pudo cargar el pago.");
     });
   }, []);
 
@@ -38,14 +38,14 @@ export default function CheckoutPage() {
         setExito(resultado.mensaje);
       })
       .catch((fallo) => {
-        setError(fallo instanceof Error ? fallo.message : "No se pudo confirmar el pago de prueba.");
+        setError(fallo instanceof Error ? fallo.message : "No se pudo confirmar el pago.");
       })
       .finally(() => setCargando(false));
   }, [estadoRetorno, paymentId, sincronizarConBackend, usuarioActual]);
 
   useEffect(() => {
     if (estadoRetorno === "failure") {
-      setError("El pago de prueba fue rechazado o cancelado. Puedes intentarlo nuevamente.");
+      setError("El pago fue rechazado o cancelado. Puedes intentarlo nuevamente.");
     } else if (estadoRetorno === "pending") {
       setError("El pago quedó pendiente y el plan todavía no fue activado.");
     }
@@ -67,7 +67,7 @@ export default function CheckoutPage() {
       const preferencia = await api.crearPreferenciaMercadoPago(usuarioActual.id, plan);
       window.location.assign(preferencia.sandboxInitPoint);
     } catch (fallo) {
-      setError(fallo instanceof Error ? fallo.message : "No se pudo iniciar Mercado Pago Sandbox.");
+      setError(fallo instanceof Error ? fallo.message : "No se pudo iniciar Mercado Pago.");
       setCargando(false);
     }
   };
@@ -87,25 +87,25 @@ export default function CheckoutPage() {
               </span>
               <div>
                 <p className="font-semibold text-slate-950">StudyFlow AI</p>
-                <p className="text-sm text-slate-500">Checkout con Mercado Pago</p>
+                <p className="text-sm text-slate-500">Pago seguro con Mercado Pago</p>
               </div>
             </div>
 
-            <p className="text-sm font-semibold text-blue-600">MODO SANDBOX</p>
+            <p className="text-sm font-semibold text-blue-600">MEJORA TU PLAN</p>
             <h1 className="mt-2 text-3xl font-bold text-slate-950">Activa {datosPlan?.nombre.replace("StudyFlow ", "") ?? "tu plan"}</h1>
-            <p className="mt-3 text-slate-600">Simula el flujo completo en Mercado Pago. No se realizará ningún cobro real.</p>
+            <p className="mt-3 text-slate-600">Confirma tu plan y continúa a Mercado Pago para completar el proceso.</p>
 
             <div className="mt-8 space-y-4 text-sm text-slate-700">
-              <p className="flex gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" /> El Access Token permanece únicamente en el backend.</p>
-              <p className="flex gap-3"><WalletCards className="h-5 w-5 shrink-0 text-blue-600" /> El pago se completa en el entorno seguro de Mercado Pago.</p>
-              <p className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-violet-600" /> StudyFlow verifica el pago antes de activar el plan.</p>
+              <p className="flex gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" /> Tus datos de pago se procesan de forma segura.</p>
+              <p className="flex gap-3"><WalletCards className="h-5 w-5 shrink-0 text-blue-600" /> Completa el proceso sin compartir tus datos financieros con StudyFlow.</p>
+              <p className="flex gap-3"><CheckCircle2 className="h-5 w-5 shrink-0 text-violet-600" /> Tu plan se activa automáticamente al confirmar el pago.</p>
             </div>
           </section>
 
           <aside className="border-t border-slate-200 bg-slate-50 p-6 sm:p-9 md:border-l md:border-t-0">
-            <p className="text-sm text-slate-500">Total de prueba</p>
+            <p className="text-sm text-slate-500">Total</p>
             <p className="mt-2 text-4xl font-bold text-slate-950">S/ {datosPlan ? (datosPlan.monto / 100).toFixed(2) : "--"}</p>
-            <p className="mt-2 text-sm text-slate-500">Pago único simulado</p>
+            <p className="mt-2 text-sm text-slate-500">Plan seleccionado</p>
 
             {error ? <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
             {exito ? <div className="mt-6 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{exito}</div> : null}
@@ -123,7 +123,7 @@ export default function CheckoutPage() {
               </Button>
             )}
 
-            <p className="mt-5 text-center text-xs leading-5 text-slate-500">Entorno de prueba. Utiliza las cuentas y tarjetas de test de Mercado Pago.</p>
+            <p className="mt-5 text-center text-xs leading-5 text-slate-500">Serás redirigido a Mercado Pago para continuar.</p>
           </aside>
         </div>
       </div>

@@ -183,7 +183,7 @@ export default function LoginPage() {
 
           {(planSeleccionado === "premium" || planSeleccionado === "premium_plus") && (
             <div className="mb-6 rounded-2xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
-              Elegiste <strong>{planSeleccionado === "premium_plus" ? "Premium Plus" : "Premium"}</strong>. Inicia sesión para continuar al pago de prueba.
+              Elegiste <strong>{planSeleccionado === "premium_plus" ? "Premium Plus" : "Premium"}</strong>. Inicia sesión para continuar con tu compra.
             </div>
           )}
 

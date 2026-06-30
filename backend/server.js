@@ -2330,7 +2330,7 @@ app.post("/api/auth/register", async (request, response) => {
 
 app.get("/api/payments/mercadopago/config", (_request, response) => {
   if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
-    response.status(503).json({ mensaje: "Mercado Pago Sandbox todavía no está configurado." });
+    response.status(503).json({ mensaje: "Los pagos con Mercado Pago no están disponibles en este momento." });
     return;
   }
 
@@ -2350,7 +2350,7 @@ app.post("/api/payments/mercadopago/preference", async (request, response) => {
   const planPago = PLANES_PAGO[plan];
 
   if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
-    response.status(503).json({ mensaje: "Mercado Pago Sandbox no está configurado." });
+    response.status(503).json({ mensaje: "Los pagos con Mercado Pago no están disponibles en este momento." });
     return;
   }
   if (!estudianteId) {
@@ -2386,7 +2386,7 @@ app.post("/api/payments/mercadopago/preference", async (request, response) => {
         items: [{
           id: plan,
           title: planPago.nombre,
-          description: "Suscripción de prueba de StudyFlow AI",
+          description: "Plan de StudyFlow AI",
           quantity: 1,
           currency_id: "PEN",
           unit_price: planPago.monto / 100,
@@ -2405,7 +2405,7 @@ app.post("/api/payments/mercadopago/preference", async (request, response) => {
 
     if (!respuestaMercadoPago.ok || !preferencia?.id || !preferencia?.sandbox_init_point) {
       response.status(400).json({
-        mensaje: preferencia?.message || preferencia?.error || "Mercado Pago rechazó la preferencia de prueba.",
+        mensaje: preferencia?.message || preferencia?.error || "No se pudo preparar el pago con Mercado Pago.",
       });
       return;
     }
@@ -2419,7 +2419,7 @@ app.post("/api/payments/mercadopago/preference", async (request, response) => {
 
     response.json({ preferenceId: preferencia.id, sandboxInitPoint: preferencia.sandbox_init_point });
   } catch (error) {
-    response.status(500).json({ mensaje: "No se pudo iniciar el pago de prueba.", error: error.message });
+    response.status(500).json({ mensaje: "No se pudo iniciar el pago.", error: error.message });
   }
 });
 
@@ -2429,7 +2429,7 @@ app.post("/api/payments/mercadopago/confirm", async (request, response) => {
   const estudianteId = String(request.headers["x-studyflow-user-id"] || "").trim();
   const paymentId = String(request.body?.paymentId || "").trim();
   if (!mercadoPagoSandboxActivo || !mercadoPagoAccessToken) {
-    response.status(503).json({ mensaje: "Mercado Pago Sandbox no está configurado." });
+    response.status(503).json({ mensaje: "Los pagos con Mercado Pago no están disponibles en este momento." });
     return;
   }
   if (!estudianteId || !paymentId) {
@@ -2484,7 +2484,7 @@ app.post("/api/payments/mercadopago/confirm", async (request, response) => {
       await cliente.query("commit");
 
       response.json({
-        mensaje: `Pago de prueba aprobado. Plan ${PLANES_PAGO[pagoLocal.plan].nombre.replace("StudyFlow ", "")} activado.`,
+        mensaje: `Pago aprobado. Plan ${PLANES_PAGO[pagoLocal.plan].nombre.replace("StudyFlow ", "")} activado.`,
         paymentId,
         usuario: mapearUsuario(actualizado.rows[0]),
       });
@@ -2495,7 +2495,7 @@ app.post("/api/payments/mercadopago/confirm", async (request, response) => {
       cliente.release();
     }
   } catch (error) {
-    response.status(500).json({ mensaje: "No se pudo confirmar el pago de prueba.", error: error.message });
+    response.status(500).json({ mensaje: "No se pudo confirmar el pago.", error: error.message });
   }
 });
 

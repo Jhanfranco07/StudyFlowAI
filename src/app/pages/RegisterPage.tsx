@@ -112,7 +112,7 @@ export default function RegisterPage() {
             <p className="mt-1 text-sm text-blue-700">
               {formData.plan === "gratis"
                 ? "No necesitas registrar ningún medio de pago."
-                : "Crearás tu cuenta Gratis y luego podrás completar un pago de prueba."}
+                : "Crearás tu cuenta Gratis y luego podrás activar el plan seleccionado."}
             </p>
           </div>
 
